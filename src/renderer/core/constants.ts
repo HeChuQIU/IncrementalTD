@@ -12,7 +12,7 @@ export const TOWER_CONFIG = {
 export const ENEMY_CONFIG = {
   spawnInterval: 2000, // ms
   maxHealth: 50,
-  speed: 80 // px/s
+  speed: 50 // px/s
 } as const
 
 export const BULLET_CONFIG = {

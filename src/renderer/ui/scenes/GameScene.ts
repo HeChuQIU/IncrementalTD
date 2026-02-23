@@ -7,14 +7,17 @@ import { bulletMoveSystem } from '../../core/systems/BulletMoveSystem'
 import { applyDamage } from '../../core/systems/DamageSystem'
 import { enemySpawnSystem, resetSpawnTimer } from '../../core/systems/EnemySpawnSystem'
 import { enemyMoveSystem } from '../../core/systems/EnemyMoveSystem'
-import { Position } from '../../core/components'
+import { Health, Position } from '../../core/components'
 import { TOWER_CONFIG, ENEMY_PATH, GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
-import { useGameStore } from '../../store/gameStore'
+import { gameStore } from '../../store/gameStore'
 import { HUD } from '../HUD'
 
 export class GameScene extends Phaser.Scene {
   private world!: IWorld
-  private enemySprites = new Map<number, Phaser.GameObjects.Container>()
+  private enemySprites = new Map<
+    number,
+    { container: Phaser.GameObjects.Container; hpFill: Phaser.GameObjects.Graphics }
+  >()
   private bulletSprites = new Map<number, Phaser.GameObjects.Graphics>()
   private hud!: HUD
 
@@ -25,7 +28,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.world = createWorld()
     resetSpawnTimer()
-    useGameStore.getState().reset()
+    gameStore.getState().reset()
 
     // ─── Map ────────────────────────────────────────────────────────────────
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x2d5a27)
@@ -47,11 +50,11 @@ export class GameScene extends Phaser.Scene {
     // ─── HUD ────────────────────────────────────────────────────────────────
     this.hud = new HUD(this)
 
-    useGameStore.getState().startGame()
+    gameStore.getState().startGame()
   }
 
   update(time: number, delta: number): void {
-    if (!useGameStore.getState().isPlaying) return
+    if (!gameStore.getState().isPlaying) return
 
     // 1. Spawn new enemies
     enemySpawnSystem(this.world, time, (eid) => {
@@ -81,8 +84,8 @@ export class GameScene extends Phaser.Scene {
       (bulletEid, targetEid, damage) => {
         applyDamage(this.world, targetEid, damage, (diedEid) => {
           this._destroyEnemySprite(diedEid)
-          useGameStore.getState().incrementKills()
-          useGameStore.getState().incrementScore(10)
+          gameStore.getState().incrementKills()
+          gameStore.getState().incrementScore(10)
         })
         this._destroyBulletSprite(bulletEid)
       },
@@ -92,15 +95,21 @@ export class GameScene extends Phaser.Scene {
     )
 
     // 5. Sync surviving sprite positions from ECS
-    for (const [eid, container] of this.enemySprites) {
-      container.setPosition(Position.x[eid], Position.y[eid])
+    for (const [eid, enemyView] of this.enemySprites) {
+      enemyView.container.setPosition(Position.x[eid], Position.y[eid])
+      const current = Math.max(0, Health.current[eid])
+      const max = Math.max(1, Health.max[eid])
+      const ratio = Phaser.Math.Clamp(current / max, 0, 1)
+      enemyView.hpFill.clear()
+      enemyView.hpFill.fillStyle(0x44ff44)
+      enemyView.hpFill.fillRect(-14, 18, 28 * ratio, 4)
     }
     for (const [eid, g] of this.bulletSprites) {
       g.setPosition(Position.x[eid], Position.y[eid])
     }
 
     // 6. Update HUD
-    const { score, enemiesKilled } = useGameStore.getState()
+    const { score, enemiesKilled } = gameStore.getState()
     this.hud.update(score, enemiesKilled)
   }
 
@@ -125,7 +134,10 @@ export class GameScene extends Phaser.Scene {
     barrel.lineBetween(x, y, x + 20, y)
   }
 
-  private _buildEnemySprite(x: number, y: number): Phaser.GameObjects.Container {
+  private _buildEnemySprite(
+    x: number,
+    y: number
+  ): { container: Phaser.GameObjects.Container; hpFill: Phaser.GameObjects.Graphics } {
     const container = this.add.container(x, y)
 
     const body = this.add.graphics()
@@ -141,13 +153,13 @@ export class GameScene extends Phaser.Scene {
     hpFill.fillRect(-14, 18, 28, 4)
 
     container.add([body, hpBg, hpFill])
-    return container
+    return { container, hpFill }
   }
 
   private _destroyEnemySprite(eid: number): void {
     const sprite = this.enemySprites.get(eid)
     if (sprite) {
-      sprite.destroy()
+      sprite.container.destroy()
       this.enemySprites.delete(eid)
     }
   }

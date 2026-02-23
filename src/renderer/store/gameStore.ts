@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createStore } from 'zustand/vanilla'
 
 interface GameState {
   isPlaying: boolean
@@ -14,7 +14,7 @@ interface GameActions {
   reset: () => void
 }
 
-export const useGameStore = create<GameState & GameActions>((set) => ({
+export const gameStore = createStore<GameState & GameActions>((set) => ({
   isPlaying: false,
   score: 0,
   enemiesKilled: 0,

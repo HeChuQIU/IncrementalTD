@@ -1,0 +1,56 @@
+{
+  "name": "incremental-td",
+  "version": "0.1.0",
+  "description": "A simple tower defense demo",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "typecheck:node": "tsc --project tsconfig.node.json --noEmit",
+    "typecheck:web": "tsc --project tsconfig.web.json --noEmit",
+    "dev": "electron-vite dev",
+    "dev:web": "vite",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "build:unpack": "electron-builder --dir",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "playwright test"
+  },
+  "dependencies": {
+    "bitecs": "^0.3.40",
+    "phaser": "^3.80.1",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.41.1",
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^8.56.0",
+    "@typescript-eslint/parser": "^8.56.0",
+    "@vitest/coverage-v8": "^3.0.7",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "electron-vite": "^2.0.0",
+    "eslint": "^9.0.0",
+    "jsdom": "^24.0.0",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vitest": "^3.0.7"
+  },
+  "build": {
+    "appId": "com.incremental-td.app",
+    "productName": "IncrementalTD",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "out/**"
+    ]
+  }
+}

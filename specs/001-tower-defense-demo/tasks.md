@@ -16,11 +16,11 @@
 
 **Purpose**: 使用成熟脚手架完成项目初始化，避免手写配置文件
 
-- [ ] T001 使用 `pnpm create electron-vite@latest . --template vanilla-ts` 在仓库根目录生成 Electron + Vite + TypeScript 项目结构（含 `src/main/`、`src/preload/`、`src/renderer/` 和 `vite.config.ts`）
-- [ ] T002 安装游戏依赖：`pnpm add phaser bitecs zustand`
-- [ ] T003 [P] 安装开发/测试依赖：`pnpm add -D vitest @vitest/coverage-v8 jsdom @types/node`
-- [ ] T004 [P] 安装 Playwright：`pnpm create playwright` 选择 TypeScript + 在已有项目中添加
-- [ ] T005 [P] 在 `vite.config.ts` 中添加 `test` 字段配置 Vitest（environment: jsdom，coverage provider: v8）；在 `package.json` 中添加 `test:unit`、`test:integration`、`test:coverage` 脚本
+- [X] T001 使用 `pnpm create electron-vite@latest . --template vanilla-ts` 在仓库根目录生成 Electron + Vite + TypeScript 项目结构（含 `src/main/`、`src/preload/`、`src/renderer/` 和 `vite.config.ts`）
+- [X] T002 安装游戏依赖：`pnpm add phaser bitecs zustand`
+- [X] T003 [P] 安装开发/测试依赖：`pnpm add -D vitest @vitest/coverage-v8 jsdom @types/node`
+- [X] T004 [P] 安装 Playwright：`pnpm create playwright` 选择 TypeScript + 在已有项目中添加
+- [X] T005 [P] 在 `vite.config.ts` 中添加 `test` 字段配置 Vitest（environment: jsdom，coverage provider: v8）；在 `package.json` 中添加 `test:unit`、`test:integration`、`test:coverage` 脚本
 
 **Checkpoint**: `pnpm dev` 能打开 Electron 窗口；`pnpm test:unit` 能空跑通过
 
@@ -32,13 +32,13 @@
 
 **⚠️ CRITICAL**: 此阶段完成前，任何 User Story 均无法开始
 
-- [ ] T006 在 `src/renderer/core/constants.ts` 定义所有游戏常量（塔攻击范围 150、攻击间隔 1000ms、攻击伤害 10；敌人刷新间隔 2000ms、最大血量 50、移动速度 50px/s；子弹速度 300px/s）
-- [ ] T007 [P] 在 `src/renderer/core/components/index.ts` 用 bitECS `defineComponent` 定义所有组件：`Position`、`Health`、`Speed`、`AttackRange`、`AttackDamage`、`AttackCooldown`、`Path`、`Velocity`、`Lifetime`、`Tag`（TowerTag / EnemyTag / BulletTag）
-- [ ] T008 [P] 在 `src/renderer/store/gameStore.ts` 用 Zustand 创建 GameStore：`isPlaying`、`score`、`enemiesKilled`；actions: `startGame`、`pauseGame`、`incrementScore`、`incrementKills`
-- [ ] T009 在 `src/renderer/core/entities/` 创建三个实体工厂函数：`createTower(world, x, y)`、`createEnemy(world, x, y, path[])`、`createBullet(world, x, y, vx, vy, damage)`（各自返回 ECS entity id）
-- [ ] T010 [P] 在 `src/renderer/utils/math.ts` 实现 `distance(x1,y1,x2,y2)`、`normalizeVector(vx,vy)` 纯函数
-- [ ] T011 [P] 在 `src/renderer/ui/scenes/` 创建 `BootScene.ts`（加载位图资源）和 `GameScene.ts` 骨架（空 `create()`/`update()` — 仅挂载场景，不含逻辑）
-- [ ] T012 在 `src/renderer/main.ts` 初始化 Phaser.Game，注册 BootScene → GameScene，挂载到 `#app`
+- [X] T006 在 `src/renderer/core/constants.ts` 定义所有游戏常量（塔攻击范围 150、攻击间隔 1000ms、攻击伤害 10；敌人刷新间隔 2000ms、最大血量 50、移动速度 50px/s；子弹速度 300px/s）
+- [X] T007 [P] 在 `src/renderer/core/components/index.ts` 用 bitECS `defineComponent` 定义所有组件：`Position`、`Health`、`Speed`、`AttackRange`、`AttackDamage`、`AttackCooldown`、`Path`、`Velocity`、`Lifetime`、`Tag`（TowerTag / EnemyTag / BulletTag）
+- [X] T008 [P] 在 `src/renderer/store/gameStore.ts` 用 Zustand 创建 GameStore：`isPlaying`、`score`、`enemiesKilled`；actions: `startGame`、`pauseGame`、`incrementScore`、`incrementKills`
+- [X] T009 在 `src/renderer/core/entities/` 创建三个实体工厂函数：`createTower(world, x, y)`、`createEnemy(world, x, y, path[])`、`createBullet(world, x, y, vx, vy, damage)`（各自返回 ECS entity id）
+- [X] T010 [P] 在 `src/renderer/utils/math.ts` 实现 `distance(x1,y1,x2,y2)`、`normalizeVector(vx,vy)` 纯函数
+- [X] T011 [P] 在 `src/renderer/ui/scenes/` 创建 `BootScene.ts`（加载位图资源）和 `GameScene.ts` 骨架（空 `create()`/`update()` — 仅挂载场景，不含逻辑）
+- [X] T012 在 `src/renderer/main.ts` 初始化 Phaser.Game，注册 BootScene → GameScene，挂载到 `#app`
 
 **Checkpoint**: 项目编译无错误；空游戏场景能在 Electron 窗口渲染
 
@@ -52,16 +52,16 @@
 
 ### 先写测试 — TDD RED 阶段 ⚠️
 
-- [ ] T013 [P] [US1] 在 `tests/unit/entities.test.ts` 为 `createTower`、`createEnemy`、`createBullet` 编写单元测试：验证组件值正确附加到实体
-- [ ] T014 [P] [US1] 在 `tests/unit/damageSystem.test.ts` 为 DamageSystem 编写单元测试：敌人血量 > 0 时存活；血量 ≤ 0 时实体被移除
+- [X] T013 [P] [US1] 在 `tests/unit/entities.test.ts` 为 `createTower`、`createEnemy`、`createBullet` 编写单元测试：验证组件值正确附加到实体
+- [X] T014 [P] [US1] 在 `tests/unit/damageSystem.test.ts` 为 DamageSystem 编写单元测试：敌人血量 > 0 时存活；血量 ≤ 0 时实体被移除
 
 ### 实现 — TDD GREEN 阶段
 
-- [ ] T015 [US1] 在 `src/renderer/ui/scenes/GameScene.ts` 的 `create()` 中：绘制地图背景色块、用 `createTower` 在地图中心创建塔精灵、用 `createEnemy` 创建一个初始敌人精灵（路径从左到右）
-- [ ] T016 [US1] 在 `src/renderer/core/systems/TowerAttackSystem.ts` 实现纯函数 `towerAttackSystem(world, time)`：检测 AttackRange 内的敌人、判断冷却、调用 `createBullet` 发射子弹，更新 `AttackCooldown.lastAttackTime`
-- [ ] T017 [US1] 在 `src/renderer/core/systems/BulletMoveSystem.ts` 实现纯函数 `bulletMoveSystem(world, delta)`：按 Velocity 更新子弹 Position；检测与敌人 Position 的碰撞（圆形检测）；命中后标记子弹为待移除
-- [ ] T018 [US1] 在 `src/renderer/core/systems/DamageSystem.ts` 实现纯函数 `damageSystem(world)`：对命中标记的子弹施加伤害到目标敌人 Health；`Health.current ≤ 0` 时调用 `removeEntity` 并更新 GameStore kills/score
-- [ ] T019 [US1] 在 `GameScene.update(time, delta)` 中按顺序调用 `towerAttackSystem`、`bulletMoveSystem`、`damageSystem`，并同步 Phaser 精灵位置/销毁
+- [X] T015 [US1] 在 `src/renderer/ui/scenes/GameScene.ts` 的 `create()` 中：绘制地图背景色块、用 `createTower` 在地图中心创建塔精灵、用 `createEnemy` 创建一个初始敌人精灵（路径从左到右）
+- [X] T016 [US1] 在 `src/renderer/core/systems/TowerAttackSystem.ts` 实现纯函数 `towerAttackSystem(world, time)`：检测 AttackRange 内的敌人、判断冷却、调用 `createBullet` 发射子弹，更新 `AttackCooldown.lastAttackTime`
+- [X] T017 [US1] 在 `src/renderer/core/systems/BulletMoveSystem.ts` 实现纯函数 `bulletMoveSystem(world, delta)`：按 Velocity 更新子弹 Position；检测与敌人 Position 的碰撞（圆形检测）；命中后标记子弹为待移除
+- [X] T018 [US1] 在 `src/renderer/core/systems/DamageSystem.ts` 实现纯函数 `damageSystem(world)`：对命中标记的子弹施加伤害到目标敌人 Health；`Health.current ≤ 0` 时调用 `removeEntity` 并更新 GameStore kills/score
+- [X] T019 [US1] 在 `GameScene.update(time, delta)` 中按顺序调用 `towerAttackSystem`、`bulletMoveSystem`、`damageSystem`，并同步 Phaser 精灵位置/销毁
 
 **Checkpoint**: US1 完整可玩 — 启动后看到场景、塔攻击初始敌人、敌人死亡消失；单元测试全绿
 
@@ -75,12 +75,12 @@
 
 ### 先写测试 — TDD RED 阶段 ⚠️
 
-- [ ] T020 [P] [US3] 在 `tests/unit/towerAttackSystem.test.ts` 测试：① 敌人在范围内且冷却结束 → 射出子弹；② 敌人不在范围内 → 不射出子弹；③ 冷却未结束 → 不射出子弹；④ 敌人已离开范围 → 移除锁定目标
+- [X] T020 [P] [US3] 在 `tests/unit/towerAttackSystem.test.ts` 测试：① 敌人在范围内且冷却结束 → 射出子弹；② 敌人不在范围内 → 不射出子弹；③ 冷却未结束 → 不射出子弹；④ 敌人已离开范围 → 移除锁定目标
 
 ### 实现 — TDD GREEN 阶段
 
-- [ ] T021 [US3] 在 `TowerAttackSystem` 中添加目标锁定逻辑：优先锁定距离最近的范围内敌人；若当前目标离开范围则清空锁定（更新 `src/renderer/core/systems/TowerAttackSystem.ts`）
-- [ ] T022 [US3] 在 `GameScene` 中添加攻击范围可视圆（调试用，生产可隐藏）— 更新 `src/renderer/ui/scenes/GameScene.ts`
+- [X] T021 [US3] 在 `TowerAttackSystem` 中添加目标锁定逻辑：优先锁定距离最近的范围内敌人；若当前目标离开范围则清空锁定（更新 `src/renderer/core/systems/TowerAttackSystem.ts`）
+- [X] T022 [US3] 在 `GameScene` 中添加攻击范围可视圆（调试用，生产可隐藏）— 更新 `src/renderer/ui/scenes/GameScene.ts`
 
 **Checkpoint**: US3 测试全绿；塔的攻击行为符合进入/离开范围的生命周期
 
@@ -94,14 +94,14 @@
 
 ### 先写测试 — TDD RED 阶段 ⚠️
 
-- [ ] T023 [P] [US2] 在 `tests/unit/enemySpawnSystem.test.ts` 测试：经过 2 个刷新间隔后产出 2 个实体；间隔未到不产出
-- [ ] T024 [P] [US2] 在 `tests/unit/enemyMoveSystem.test.ts` 测试：敌人沿 Path 移动，到达路径末端后实体被移除
+- [X] T023 [P] [US2] 在 `tests/unit/enemySpawnSystem.test.ts` 测试：经过 2 个刷新间隔后产出 2 个实体；间隔未到不产出
+- [X] T024 [P] [US2] 在 `tests/unit/enemyMoveSystem.test.ts` 测试：敌人沿 Path 移动，到达路径末端后实体被移除
 
 ### 实现 — TDD GREEN 阶段
 
-- [ ] T025 [US2] 在 `src/renderer/core/systems/EnemySpawnSystem.ts` 实现纯函数 `enemySpawnSystem(world, time)`：使用 `ENEMY_SPAWN_INTERVAL` 计时，调用 `createEnemy` 并为其分配预设路径（左端 → 右端）
-- [ ] T026 [US2] 在 `src/renderer/core/systems/EnemyMoveSystem.ts` 实现纯函数 `enemyMoveSystem(world, delta)`：按 Speed 沿 Path 更新 Position；当 `Path.currentIndex >= points.length` 时调用 `removeEntity`
-- [ ] T027 [US2] 在 `GameScene.update()` 中集成 `enemySpawnSystem` 与 `enemyMoveSystem`（在 TowerAttackSystem 之前调用），并更新 Phaser 精灵的动态创建/销毁逻辑 — 更新 `src/renderer/ui/scenes/GameScene.ts`
+- [X] T025 [US2] 在 `src/renderer/core/systems/EnemySpawnSystem.ts` 实现纯函数 `enemySpawnSystem(world, time)`：使用 `ENEMY_SPAWN_INTERVAL` 计时，调用 `createEnemy` 并为其分配预设路径（左端 → 右端）
+- [X] T026 [US2] 在 `src/renderer/core/systems/EnemyMoveSystem.ts` 实现纯函数 `enemyMoveSystem(world, delta)`：按 Speed 沿 Path 更新 Position；当 `Path.currentIndex >= points.length` 时调用 `removeEntity`
+- [X] T027 [US2] 在 `GameScene.update()` 中集成 `enemySpawnSystem` 与 `enemyMoveSystem`（在 TowerAttackSystem 之前调用），并更新 Phaser 精灵的动态创建/销毁逻辑 — 更新 `src/renderer/ui/scenes/GameScene.ts`
 
 **Checkpoint**: US2 测试全绿；游戏中敌人持续刷新并移动，所有 US1–US3 功能同时可用
 
@@ -109,10 +109,10 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T028 [P] 在 `src/renderer/ui/` 添加 HUD：左上角显示 Zustand Store 的 `score` 和 `enemiesKilled` — 新建 `src/renderer/ui/HUD.ts`
-- [ ] T029 [P] 配置 ESLint（`pnpm dlx @eslint/migrate-config` + TypeScript 规则）和 Prettier；在 `package.json` 添加 `lint` / `format` 脚本
-- [ ] T030 按 `quickstart.md` 验证完整流程：`pnpm install` → `pnpm dev` → 游戏可玩；`pnpm test:unit` 全绿；`pnpm build` 产出 Electron 安装包
-- [ ] T031 [P] 在 `tests/integration/` 添加 Playwright smoke test：启动游戏页面，断言 canvas 元素存在，游戏在 1 秒内出现敌人精灵
+- [X] T028 [P] 在 `src/renderer/ui/` 添加 HUD：左上角显示 Zustand Store 的 `score` 和 `enemiesKilled` — 新建 `src/renderer/ui/HUD.ts`
+- [X] T029 [P] 配置 ESLint（`pnpm dlx @eslint/migrate-config` + TypeScript 规则）和 Prettier；在 `package.json` 添加 `lint` / `format` 脚本
+- [X] T030 按 `quickstart.md` 验证完整流程：`pnpm install` → `pnpm dev` → 游戏可玩；`pnpm test:unit` 全绿；`pnpm build` 产出 Electron 安装包
+- [X] T031 [P] 在 `tests/integration/` 添加 Playwright smoke test：启动游戏页面，断言 canvas 元素存在，游戏在 1 秒内出现敌人精灵
 
 ---
 

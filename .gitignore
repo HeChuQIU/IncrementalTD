@@ -12,6 +12,8 @@ coverage/
 # Production
 dist/
 build/
+out/
+release/
 *.exe
 *.out
 *.app

@@ -3,40 +3,37 @@
 **Branch**: `001-tower-defense-demo` | **Date**: 2026-02-23 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/001-tower-defense-demo/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
-
 ## Summary
 
-创建一个简单的塔防游戏示例，使用 Phaser 3 游戏引擎和 bitECS 实体组件系统架构。包含地图、一个可攻击的塔和不断刷新的敌人，敌人具有血量属性。
+构建一个简单的塔防游戏演示：地图上有一个塔和不断刷新的敌人，塔自动攻击范围内的敌人，敌人具有血量属性被击杀后消失。技术栈采用 Phaser 3 渲染 + bitECS 实体组件系统 + Zustand 全局状态管理，运行在浏览器和 Electron 桌面端。
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x
-**Primary Dependencies**: Phaser 3, bitECS, Zustand
-**Storage**: 本地存储（用于游戏进度，可选）
-**Testing**: Vitest（单元测试）, Playwright（集成测试）
-**Target Platform**: 浏览器（WASM）+ 桌面应用（Electron）
-**Project Type**: 游戏应用（塔防游戏）
-**Performance Goals**: 60 fps
-**Constraints**: <100MB 内存，离线可玩
-**Scale/Scope**: 单玩家，简单地图，有限敌人类型
+**Language/Version**: TypeScript 5.x  
+**Primary Dependencies**: Phaser 3, bitECS, Zustand, Vite, Electron  
+**Storage**: N/A（无持久化存储需求）  
+**Testing**: Vitest（单元测试）、Playwright（集成测试）  
+**Package Manager**: pnpm  
+**Target Platform**: Browser（Web）+ Electron（Desktop，跨平台）  
+**Project Type**: game（HTML5 + 桌面端）  
+**Performance Goals**: 游戏逻辑响应流畅；塔防演示规模（单张地图、单个塔）无特殊性能瓶颈  
+**Constraints**: 离线可用（Electron 打包）；避免在 update 循环中创建对象（对象池）  
+**Scale/Scope**: 单地图、单塔、无限波次敌人刷新的最小可玩演示
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-✅ **I. Test-Driven Development (TDD)**: 计划严格遵循 TDD 流程
-✅ **II. Functional Programming Paradigm**: 使用函数式编程模式，避免副作用
-✅ **III. Type Safety with TypeScript**: 所有代码使用 TypeScript，严格类型检查
-✅ **IV. Entity-Component-System Architecture**: 使用 bitECS 作为 ECS 框架
-✅ **V. State Management with Zustand**: 使用 Zustand 进行全局状态管理
-✅ **Game Engine**: 使用 Phaser 3 作为游戏引擎
-✅ **Desktop Application**: 使用 Electron 作为桌面端包装
-✅ **Package Manager**: 使用 pnpm 作为包管理器
-✅ **Environment Configuration**: 敏感信息放在 .env 文件中
-✅ **Code Quality**: 遵循 ESLint 和 Prettier 规范
-✅ **Testing**: 使用 Vitest（单元测试）和 Playwright（集成测试）
-✅ **Version Control**: 使用 Git，遵循 Conventional Commits 规范
+| # | 原则 | 状态 | 说明 |
+|---|------|------|------|
+| I | TDD（先写测试） | ✅ PASS | Vitest 单元测试 + Playwright 集成测试，所有系统需先有测试用例 |
+| II | 函数式编程范式 | ✅ PASS | ECS 系统设计为纯函数，组件为数据结构，避免副作用 |
+| III | TypeScript 严格类型 | ✅ PASS | 全部使用 TypeScript 5.x，禁止 any 类型 |
+| IV | bitECS 架构 | ✅ PASS | 塔、敌人、子弹均作为 ECS 实体，逻辑放在系统中 |
+| V | Zustand 状态管理 | ✅ PASS | 游戏全局状态（分数、游戏状态）使用 Zustand 管理 |
+| - | pnpm 包管理 | ✅ PASS | 使用 pnpm 作为包管理器 |
+
+**结论**: 无违规，可继续执行。
 
 ## Project Structure
 
@@ -57,32 +54,22 @@ specs/001-tower-defense-demo/
 ```text
 src/
 ├── core/
-│   ├── entities/        # ECS 实体定义
-│   ├── components/      # ECS 组件定义
-│   ├── systems/         # ECS 系统定义（塔攻击、敌人移动等）
-│   └── constants.ts     # 游戏常量定义
+│   ├── components/     # bitECS 组件定义（Position, Health, Speed 等）
+│   ├── systems/        # ECS 系统（EnemySpawnSystem, TowerAttackSystem 等）
+│   ├── entities/       # 实体工厂函数（createTower, createEnemy, createBullet）
+│   └── constants.ts    # 游戏常量（攻击范围、刷新间隔等）
 ├── ui/
-│   ├── scenes/          # Phaser 场景（地图、游戏UI等）
-│   ├── sprites/         # 精灵和动画
-│   └── styles/          # 样式文件
-├── store/               # Zustand 状态管理
-├── utils/               # 工具函数
-└── main.ts              # 游戏入口文件
+│   ├── scenes/         # Phaser Scene（BootScene, GameScene）
+│   └── sprites/        # 精灵工厂和动画配置
+├── store/              # Zustand store（全局游戏状态）
+├── utils/              # 工具函数（数学计算、碰撞检测等）
+└── main.ts             # Phaser 游戏入口
 
 tests/
-├── unit/                # Vitest 单元测试
-└── integration/         # Playwright 集成测试
-
-electron/               # Electron 桌面端代码
-├── main/               # 主进程
-├── renderer/           # 渲染进程
-└── preload/            # 预加载脚本
+├── unit/               # Vitest 单元测试（系统、实体、工具函数）
+└── integration/        # Playwright 集成测试（游戏场景 E2E）
 ```
 
-**Structure Decision**: 选择 Option 2（Web + Desktop）结构，因为项目同时支持浏览器和桌面端
+**Structure Decision**: 使用 Option 1（单项目结构）。无后端/API 需求；Phaser 场景作为渲染层，bitECS 系统作为逻辑层，Zustand 作为状态层，三者在 `src/` 内清晰分离。
 
-## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-无违反章程的情况

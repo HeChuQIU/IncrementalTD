@@ -1,3 +1,5 @@
+.vscode/
+
 # Dependencies
 node_modules/
 .pnp
@@ -45,3 +47,4 @@ Thumbs.db
 
 # Claude Code settings
 .claude/settings.local.json
+.vscode/

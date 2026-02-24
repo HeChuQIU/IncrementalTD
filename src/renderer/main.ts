@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { BootScene } from './ui/scenes/BootScene'
 import { GameScene } from './ui/scenes/GameScene'
+import { ConsoleScene } from './ui/scenes/ConsoleScene'
 import { GAME_WIDTH, GAME_HEIGHT } from './core/constants'
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -9,7 +10,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: GAME_HEIGHT,
   backgroundColor: '#1a1a1a',
   parent: 'app',
-  scene: [BootScene, GameScene]
+  scene: [BootScene, GameScene, ConsoleScene]
 }
 
 new Phaser.Game(config)

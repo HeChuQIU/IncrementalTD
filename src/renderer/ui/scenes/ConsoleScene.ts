@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
 import {
   RoundRectangle,
-  BBCodeText
+  BBCodeText,
+  CanvasInput
 } from 'phaser3-rex-plugins/templates/ui/ui-components.js'
 import { consoleStore } from '../../console/ConsoleStore'
 import { commandRegistry } from '../../console/CommandRegistry'
@@ -19,7 +20,6 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
 const CONSOLE_HEIGHT_RATIO = 0.4
 const CONSOLE_BG_ALPHA = 0.75
 const CONSOLE_BG_COLOR = 0x1a1a2e
-const INPUT_BG_COLOR = 0x16213e
 const PADDING = 10
 const INPUT_HEIGHT = 30
 const CORNER_RADIUS = 6
@@ -37,20 +37,12 @@ export class ConsoleScene extends Phaser.Scene {
   // ─── UI elements ────────────────────────────────────────────────────
   private consoleContainer!: Phaser.GameObjects.Container
   private consoleBg!: RoundRectangle
-  private inputBg!: RoundRectangle
-  private inputText!: Phaser.GameObjects.Text
-  private cursorBlink!: Phaser.GameObjects.Rectangle
-  private cursorTimer?: Phaser.Time.TimerEvent
-  private cursorVisible = true
+  private inputField!: CanvasInput
+  private promptLabel!: Phaser.GameObjects.Text
 
   // ─── Rex‑plugins: message display ────────────────────────────────
   private messageDisplay!: BBCodeText
   private scrollOffset = 0
-
-  // ─── Input state ────────────────────────────────────────────────────
-  private inputBuffer = ''
-  private cursorPos = 0
-  private charWidth = 0
 
   // ─── Completion state ───────────────────────────────────────────────
   private completionItems: CompletionItem[] = []
@@ -66,6 +58,7 @@ export class ConsoleScene extends Phaser.Scene {
   private consoleHeight = 0
   private consoleY = 0
   private commandsRegistered = false
+  private domKeyHandler?: (e: KeyboardEvent) => void
 
   constructor() {
     super({ key: 'ConsoleScene' })
@@ -110,52 +103,52 @@ export class ConsoleScene extends Phaser.Scene {
     this.add.existing(this.consoleBg)
     this.consoleContainer.add(this.consoleBg)
 
-    // ─── Input background (RoundRectangle) ──────────────────────────
-    const inputY = this.consoleHeight - INPUT_HEIGHT / 2 - PADDING / 2
-    this.inputBg = new RoundRectangle(
-      this,
-      GAME_WIDTH / 2,
-      inputY,
-      GAME_WIDTH - PADDING * 2,
-      INPUT_HEIGHT,
-      CORNER_RADIUS,
-      INPUT_BG_COLOR,
-      0.9
-    )
-    this.add.existing(this.inputBg)
-    this.consoleContainer.add(this.inputBg)
+    // ─── Input field (CanvasInput with built-in cursor & editing) ───
+    const inputCenterY = this.consoleHeight - INPUT_HEIGHT / 2 - PADDING / 2
 
-    // ─── Input text ─────────────────────────────────────────────────
-    this.inputText = this.add.text(
-      PADDING + 8,
+    // Prompt label
+    this.promptLabel = this.add.text(
+      PADDING + 4,
       this.consoleHeight - INPUT_HEIGHT - PADDING / 2 + 6,
       '> ',
-      { fontSize: '14px', color: '#ffffff', fontFamily: 'Consolas, monospace' }
+      { fontSize: '14px', color: '#888888', fontFamily: 'Consolas, monospace' }
     )
-    this.consoleContainer.add(this.inputText)
+    this.consoleContainer.add(this.promptLabel)
 
-    // ─── Cursor blink ───────────────────────────────────────────────
-    this.cursorBlink = this.add.rectangle(
-      PADDING + 8 + this.inputText.width,
-      this.consoleHeight - INPUT_HEIGHT - PADDING / 2 + 6,
-      2, 16, 0xffffff
-    )
-    this.cursorBlink.setOrigin(0, 0)
-    this.consoleContainer.add(this.cursorBlink)
+    const promptW = this.promptLabel.width
+    const fieldWidth = GAME_WIDTH - PADDING * 2 - promptW - 4
+    const fieldX = PADDING + promptW + 4 + fieldWidth / 2
 
-    this.cursorTimer = this.time.addEvent({
-      delay: 530,
-      loop: true,
-      callback: () => {
-        this.cursorVisible = !this.cursorVisible
-        this.cursorBlink.setVisible(this.cursorVisible)
-      }
+    this.inputField = new CanvasInput(this, {
+      x: fieldX,
+      y: inputCenterY,
+      width: fieldWidth,
+      height: INPUT_HEIGHT,
+      background: {
+        color: 0x16213e,
+        cornerRadius: CORNER_RADIUS,
+        'focus.color': 0x1a2744
+      },
+      style: {
+        fontSize: '14px',
+        fontFamily: 'Consolas, monospace',
+        color: '#ffffff',
+        'cursor.color': '#ffffff',
+        'cursor.backgroundColor': '#444466'
+      },
+      textArea: false,
+      enterClose: false,
+      text: '',
+      wrap: { maxLines: 1, wrapMode: 'none' }
     })
+    this.add.existing(this.inputField)
+    this.consoleContainer.add(this.inputField)
 
-    // ─── Measure monospace char width for cursor positioning ────────
-    const sample = this.add.text(0, -100, 'M', { fontSize: '14px', fontFamily: 'Consolas, monospace' })
-    this.charWidth = sample.width
-    sample.destroy()
+    // Track text changes for completions & highlights
+    this.inputField.on('textchange', () => {
+      this.updateCompletions()
+      this.updateHighlights()
+    })
 
     // ─── Message display (BBCodeText) ──────────────────────────────
     const msgAreaWidth = GAME_WIDTH - PADDING * 2
@@ -175,8 +168,12 @@ export class ConsoleScene extends Phaser.Scene {
     this.add.existing(this.messageDisplay)
     this.consoleContainer.add(this.messageDisplay)
 
-    // ─── Keyboard input ─────────────────────────────────────────────
-    this.input.keyboard?.on('keydown', this.handleKeyDown, this)
+    // ─── Keyboard: capture-phase handler for special keys ──────────
+    this.domKeyHandler = (e: KeyboardEvent) => {
+      if (!consoleStore.getState().isOpen) return
+      this.handleSpecialKey(e)
+    }
+    document.addEventListener('keydown', this.domKeyHandler, true)
 
     // Start hidden
     this.consoleContainer.setVisible(false)
@@ -185,30 +182,33 @@ export class ConsoleScene extends Phaser.Scene {
     consoleStore.subscribe((state) => {
       this.consoleContainer.setVisible(state.isOpen)
       if (state.isOpen) {
+        this.inputField.open()
         this.historyManager?.reset()
         this.refreshMessages()
       } else {
+        this.inputField.close()
         this.highlightManager?.clearHighlights()
       }
     })
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // Keyboard handling
+  // Special key handling (document capture phase)
   // ═══════════════════════════════════════════════════════════════════
 
-  private handleKeyDown(event: KeyboardEvent): void {
-    if (!consoleStore.getState().isOpen) return
-    event.stopPropagation()
-
+  private handleSpecialKey(event: KeyboardEvent): void {
     switch (event.key) {
       case 'Escape':
+        event.preventDefault()
+        event.stopImmediatePropagation()
         consoleStore.getState().closeConsole()
         this.highlightManager?.clearHighlights()
         this.hideCompletions()
         break
 
       case 'Enter':
+        event.preventDefault()
+        event.stopImmediatePropagation()
         if (this.completionItems.length > 0 && this.completionIndex >= 0) {
           this.applyCompletion(this.completionItems[this.completionIndex].label)
         } else {
@@ -218,107 +218,41 @@ export class ConsoleScene extends Phaser.Scene {
 
       case 'Tab':
         event.preventDefault()
+        event.stopImmediatePropagation()
         if (this.completionItems.length > 0) {
           this.applyCompletion(this.completionItems[Math.max(0, this.completionIndex)].label)
         }
         break
 
-      case 'ArrowLeft':
-        event.preventDefault()
-        if (this.cursorPos > 0) {
-          this.cursorPos--
-          this.updateCursorPosition()
-        }
-        break
-
-      case 'ArrowRight':
-        event.preventDefault()
-        if (this.cursorPos < this.inputBuffer.length) {
-          this.cursorPos++
-          this.updateCursorPosition()
-        }
-        break
-
-      case 'Home':
-        event.preventDefault()
-        this.cursorPos = 0
-        this.updateCursorPosition()
-        break
-
-      case 'End':
-        event.preventDefault()
-        this.cursorPos = this.inputBuffer.length
-        this.updateCursorPosition()
-        break
-
       case 'ArrowUp':
         event.preventDefault()
+        event.stopImmediatePropagation()
         if (this.completionItems.length > 0) {
           this.completionIndex = Math.max(0, this.completionIndex - 1)
           this.renderCompletions()
         } else if (this.historyManager) {
           const cmd = this.historyManager.navigateUp()
           if (cmd !== null) {
-            this.inputBuffer = cmd
-            this.cursorPos = cmd.length
-            this.updateInputDisplay()
+            this.inputField.setText(cmd)
           }
         }
         break
 
       case 'ArrowDown':
         event.preventDefault()
+        event.stopImmediatePropagation()
         if (this.completionItems.length > 0) {
           this.completionIndex = Math.min(this.completionItems.length - 1, this.completionIndex + 1)
           this.renderCompletions()
         } else if (this.historyManager) {
           const cmd = this.historyManager.navigateDown()
-          if (cmd !== null) {
-            this.inputBuffer = cmd
-            this.cursorPos = cmd.length
-          } else {
-            this.inputBuffer = ''
-            this.cursorPos = 0
-          }
-          this.updateInputDisplay()
+          this.inputField.setText(cmd ?? '')
         }
         break
 
-      case 'Backspace':
-        if (this.cursorPos > 0) {
-          this.inputBuffer =
-            this.inputBuffer.slice(0, this.cursorPos - 1) +
-            this.inputBuffer.slice(this.cursorPos)
-          this.cursorPos--
-          this.updateInputDisplay()
-          this.updateCompletions()
-          this.updateHighlights()
-        }
-        break
-
-      case 'Delete':
-        if (this.cursorPos < this.inputBuffer.length) {
-          this.inputBuffer =
-            this.inputBuffer.slice(0, this.cursorPos) +
-            this.inputBuffer.slice(this.cursorPos + 1)
-          this.updateInputDisplay()
-          this.updateCompletions()
-          this.updateHighlights()
-        }
-        break
-
-      default:
-        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          if (event.key === '`') break
-          this.inputBuffer =
-            this.inputBuffer.slice(0, this.cursorPos) +
-            event.key +
-            this.inputBuffer.slice(this.cursorPos)
-          this.cursorPos++
-          this.updateInputDisplay()
-          this.updateCompletions()
-          this.updateHighlights()
-        }
+      case '`':
+        event.preventDefault()
+        event.stopImmediatePropagation()
         break
     }
   }
@@ -328,7 +262,7 @@ export class ConsoleScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════════════════════════
 
   private executeCurrentInput(): void {
-    const input = this.inputBuffer.trim()
+    const input = (this.inputField.text ?? '').trim()
     if (!input) return
 
     consoleStore.getState().appendMessage({ content: `> ${input}`, kind: 'input' })
@@ -343,9 +277,7 @@ export class ConsoleScene extends Phaser.Scene {
 
     this.historyManager?.push(input)
 
-    this.inputBuffer = ''
-    this.cursorPos = 0
-    this.updateInputDisplay()
+    this.inputField.setText('')
     this.hideCompletions()
     this.refreshMessages()
 
@@ -357,20 +289,6 @@ export class ConsoleScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════════════════════════
   // Display helpers
   // ═══════════════════════════════════════════════════════════════════
-
-  private updateInputDisplay(): void {
-    this.inputText.setText(`> ${this.inputBuffer}`)
-    this.updateCursorPosition()
-  }
-
-  /** Reposition cursor blink based on cursorPos and reset blink visibility */
-  private updateCursorPosition(): void {
-    // "> " prefix = 2 chars, then cursorPos chars into the buffer
-    const offsetChars = 2 + this.cursorPos
-    this.cursorBlink.setX(PADDING + 8 + this.charWidth * offsetChars)
-    this.cursorVisible = true
-    this.cursorBlink.setVisible(true)
-  }
 
   /**
    * Rebuild message display from ConsoleStore.
@@ -401,7 +319,7 @@ export class ConsoleScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════════════════════════
 
   updateCompletions(): void {
-    this.completionItems = completionEngine.getCompletions(this.inputBuffer)
+    this.completionItems = completionEngine.getCompletions(this.inputField.text ?? '')
     this.completionIndex = this.completionItems.length > 0 ? 0 : -1
     this.renderCompletions()
   }
@@ -460,15 +378,16 @@ export class ConsoleScene extends Phaser.Scene {
   }
 
   private applyCompletion(label: string): void {
-    const tokens = this.inputBuffer.split(/\s+/)
+    const currentText = this.inputField.text ?? ''
+    const tokens = currentText.split(/\s+/)
+    let newText: string
     if (tokens.length <= 1) {
-      this.inputBuffer = '/' + label + ' '
+      newText = '/' + label + ' '
     } else {
       tokens[tokens.length - 1] = label
-      this.inputBuffer = tokens.join(' ') + ' '
+      newText = tokens.join(' ') + ' '
     }
-    this.cursorPos = this.inputBuffer.length
-    this.updateInputDisplay()
+    this.inputField.setText(newText)
     this.hideCompletions()
     this.updateHighlights()
   }
@@ -479,7 +398,7 @@ export class ConsoleScene extends Phaser.Scene {
 
   updateHighlights(): void {
     if (!this.highlightManager) return
-    const coords = parseCoordinatesFromInput(this.inputBuffer)
+    const coords = parseCoordinatesFromInput(this.inputField.text ?? '')
     if (coords) {
       this.highlightManager.highlightTile(coords.x, coords.y)
     } else {
@@ -495,6 +414,12 @@ export class ConsoleScene extends Phaser.Scene {
 
   setHighlightManager(hm: HighlightManager): void {
     this.highlightManager = hm
+  }
+
+  shutdown(): void {
+    if (this.domKeyHandler) {
+      document.removeEventListener('keydown', this.domKeyHandler, true)
+    }
   }
 }
 

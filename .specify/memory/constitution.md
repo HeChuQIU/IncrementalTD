@@ -1,73 +1,77 @@
 <!-- Sync Impact Report:
-Version change: 0.0.0 → 1.0.0
-Added sections: All sections
-Templates requiring updates: ✅ all templates updated
+Version change: 1.0.0 → 1.1.0
+Modified principles: Added VI. 跨平台版本测试策略
+Templates requiring updates: ✅ all templates verified
 Follow-up TODOs: None
 -->
 
-# IncrementalTD Constitution
+# IncrementalTD 宪法
 
-## Core Principles
+## 核心原则
 
-### I. Test-Driven Development (TDD) - NON-NEGOTIABLE
+### I. 测试驱动开发（TDD）- 强制执行
 严格遵循测试驱动开发流程：先编写测试 → 测试失败 → 实现功能 → 测试通过 → 重构。所有功能必须有对应的测试用例，确保代码质量和可维护性。
 
-### II. Functional Programming Paradigm
+### II. 函数式编程范式
 倾向于使用函数式编程模式，避免副作用，优先使用纯函数。代码应具有不可变性、可组合性和可测试性。
 
-### III. Type Safety with TypeScript
-所有代码必须使用TypeScript编写，严格类型检查。避免使用any类型，确保类型定义的完整性和准确性。
+### III. TypeScript 类型安全
+所有代码必须使用 TypeScript 编写，启用严格类型检查。避免使用 any 类型，确保类型定义的完整性和准确性。
 
-### IV. Entity-Component-System Architecture
-使用bitECS作为游戏的ECS框架，实现高性能的实体管理和系统更新。组件应保持简单数据结构，逻辑应放在系统中。
+### IV. 实体-组件-系统架构（ECS）
+使用 bitECS 作为游戏的 ECS 框架，实现高性能的实体管理和系统更新。组件应保持简单数据结构，逻辑应放在系统中。
 
-### V. State Management with Zustand
-使用Zustand进行全局状态管理，保持状态管理的简单性和可预测性。状态应尽可能局部化，只在必要时使用全局状态。
+### V. Zustand 全局状态管理
+使用 Zustand 进行全局状态管理，保持状态管理的简单性和可预测性。状态应尽可能局部化，只在必要时使用全局状态。
 
-## Technology Stack Requirements
+### VI. 跨平台版本测试策略
+测试主要针对 Web 版本进行详细验证，包括单元测试、集成测试和功能测试。对于 Electron 桌面版本（desktop），只需验证能够成功生成，无须进行详细的功能测试。视两个版本的行为一致，仅需确保桌面版本构建通过。
 
-### Game Engine
-- 使用Phaser 3作为游戏引擎，构建塔防和增量游戏玩法
+## 技术栈要求
+
+### 游戏引擎
+- 使用 Phaser 3 作为游戏引擎，构建塔防和增量游戏玩法
 - 游戏逻辑与渲染分离，便于测试和维护
 
-### Desktop Application
-- 使用Electron作为桌面端包装，提供跨平台支持
-- 主进程与渲染进程通信应通过IPC，保持架构清晰
+### 桌面应用
+- 使用 Electron 作为桌面端包装，提供跨平台支持
+- 主进程与渲染进程通信应通过 IPC，保持架构清晰
 
-### Package Manager
-- 使用pnpm作为包管理器，提高依赖安装速度和磁盘空间利用率
+### 包管理器
+- 使用 pnpm 作为包管理器，提高依赖安装速度和磁盘空间利用率
 - 严格管理依赖版本，避免无意识的依赖更新
 
-### Environment Configuration
-- 所有敏感信息（如API密钥、token）必须放在.gitignore中的.env文件中
-- 环境变量应通过dotenv或类似工具加载，确保安全性
+### 环境配置
+- 所有敏感信息（如 API 密钥、token）必须放在 .gitignore 中的 .env 文件中
+- 环境变量应通过 dotenv 或类似工具加载，确保安全性
 
-## Development Workflow
+## 开发工作流
 
-### Code Quality
-- 代码应遵循ESLint和Prettier规范
-- 提交前应运行lint和格式化检查
+### 代码质量
+- 代码应遵循 ESLint 和 Prettier 规范
+- 提交前应运行 lint 和格式化检查
 - 避免过度工程化，保持代码简洁和可读性
 
-### Testing
-- 单元测试使用Vitest或Jest
-- 集成测试使用Playwright或Cypress
-- 游戏逻辑测试应模拟Phaser环境，避免真实DOM依赖
+### 测试
+- 单元测试使用 Vitest 或 Jest
+- 集成测试使用 Playwright 或 Cypress（仅针对 Web 版本）
+- 游戏逻辑测试应模拟 Phaser 环境，避免真实 DOM 依赖
+- Web 版本需通过完整的测试套件，桌面版本仅需验证构建成功
 
-### Version Control
-- 使用Git进行版本控制
-- 提交信息应清晰简洁，遵循Conventional Commits规范
-- 分支管理使用Git Flow或类似策略
+### 版本控制
+- 使用 Git 进行版本控制
+- 提交信息应清晰简洁，遵循 Conventional Commits 规范
+- 分支管理使用 Git Flow 或类似策略
 
-## Governance
+## 治理
 
-### Constitution Supremacy
-本章程是项目开发的最高指导原则，所有开发活动必须遵循。
+### 宪法至上
+本宪法是项目开发的最高指导原则，所有开发活动必须遵循。
 
-### Amendments
-章程修改需经过团队讨论和批准，并更新版本号。
+### 修正条款
+宪法修改需经过团队讨论和批准，并更新版本号。
 
-### Compliance
-所有PR必须验证是否符合章程要求，代码审查应包括章程合规性检查。
+### 合规性检查
+所有 PR 必须验证是否符合宪法要求，代码审查应包括宪法合规性检查。
 
-**Version**: 1.0.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-02-23
+**版本**: 1.1.0 | **批准日期**: 2026-02-23 | **最后修改**: 2026-02-24

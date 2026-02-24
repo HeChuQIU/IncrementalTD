@@ -1,4 +1,9 @@
 import Phaser from 'phaser'
+import {
+  RoundRectangle,
+  BBCodeText,
+  TextArea
+} from 'phaser3-rex-plugins/templates/ui/ui-components.js'
 import { consoleStore } from '../../console/ConsoleStore'
 import { commandRegistry } from '../../console/CommandRegistry'
 import { registerHelpCommand } from '../../console/commands/helpCommand'
@@ -8,48 +13,53 @@ import { registerClearCommand } from '../../console/commands/clearCommand'
 import { HistoryManager } from '../../console/HistoryManager'
 import { HighlightManager, parseCoordinatesFromInput } from '../../console/HighlightManager'
 import { completionEngine } from '../../console/CompletionEngine'
-import type { ConsoleMessage } from '../../console/types'
+import type { ConsoleMessage, CompletionItem } from '../../console/types'
 import { GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
 
+// ─── Layout constants ────────────────────────────────────────────────────────
 const CONSOLE_HEIGHT_RATIO = 0.4
 const CONSOLE_BG_ALPHA = 0.75
 const CONSOLE_BG_COLOR = 0x1a1a2e
 const INPUT_BG_COLOR = 0x16213e
-const MAX_VISIBLE_LINES = 12
-const LINE_HEIGHT = 20
 const PADDING = 10
 const INPUT_HEIGHT = 30
+const CORNER_RADIUS = 6
 
-const COLOR_MAP: Record<ConsoleMessage['kind'], string> = {
+// ─── BBCode color map ────────────────────────────────────────────────────────
+const BBCODE_COLOR: Record<ConsoleMessage['kind'], string> = {
   input: '#ffffff',
   success: '#44ff44',
   error: '#ff4444'
 }
 
 export class ConsoleScene extends Phaser.Scene {
+  // ─── UI elements ────────────────────────────────────────────────────
   private consoleContainer!: Phaser.GameObjects.Container
-  private bgGraphics!: Phaser.GameObjects.Graphics
-  private inputBg!: Phaser.GameObjects.Graphics
+  private consoleBg!: RoundRectangle
+  private inputBg!: RoundRectangle
   private inputText!: Phaser.GameObjects.Text
-  private messageTexts: Phaser.GameObjects.Text[] = []
   private cursorBlink!: Phaser.GameObjects.Rectangle
-  private inputBuffer = ''
-  private cursorVisible = true
   private cursorTimer?: Phaser.Time.TimerEvent
-  private scrollOffset = 0
+  private cursorVisible = true
+
+  // ─── Rex‑plugins: scrollable message area ───────────────────────────
+  private messageArea!: TextArea
+  private messageContent!: BBCodeText
+
+  // ─── Input state ────────────────────────────────────────────────────
+  private inputBuffer = ''
 
   // ─── Completion state ───────────────────────────────────────────────
-  private completionItems: import('../../console/types').CompletionItem[] = []
+  private completionItems: CompletionItem[] = []
   private completionIndex = -1
   private completionTexts: Phaser.GameObjects.Text[] = []
-  private completionBg?: Phaser.GameObjects.Graphics
+  private completionBg?: RoundRectangle
 
-  // ─── History state ──────────────────────────────────────────────────
-  private historyManager?: import('../../console/HistoryManager').HistoryManager
+  // ─── Managers ───────────────────────────────────────────────────────
+  private historyManager?: HistoryManager
+  private highlightManager?: HighlightManager
 
-  // ─── Highlight state ───────────────────────────────────────────────
-  private highlightManager?: import('../../console/HighlightManager').HighlightManager
-
+  // ─── Internal ───────────────────────────────────────────────────────
   private consoleHeight = 0
   private consoleY = 0
   private commandsRegistered = false
@@ -79,37 +89,53 @@ export class ConsoleScene extends Phaser.Scene {
       this.highlightManager = new HighlightManager(this.scene.get('GameScene') ?? this)
     }
 
-    // Create container for all console elements
+    // ─── Container ──────────────────────────────────────────────────
     this.consoleContainer = this.add.container(0, this.consoleY)
     this.consoleContainer.setDepth(1000)
 
-    // ─── Background ─────────────────────────────────────────────────
-    this.bgGraphics = this.add.graphics()
-    this.bgGraphics.fillStyle(CONSOLE_BG_COLOR, CONSOLE_BG_ALPHA)
-    this.bgGraphics.fillRect(0, 0, GAME_WIDTH, this.consoleHeight)
-    this.consoleContainer.add(this.bgGraphics)
+    // ─── Console background (RoundRectangle) ────────────────────────
+    this.consoleBg = new RoundRectangle(
+      this,
+      GAME_WIDTH / 2,
+      this.consoleHeight / 2,
+      GAME_WIDTH,
+      this.consoleHeight,
+      { tl: 0, tr: 0, bl: 0, br: 0 },
+      CONSOLE_BG_COLOR,
+      CONSOLE_BG_ALPHA
+    )
+    this.add.existing(this.consoleBg)
+    this.consoleContainer.add(this.consoleBg)
 
-    // ─── Input background ───────────────────────────────────────────
-    this.inputBg = this.add.graphics()
-    this.inputBg.fillStyle(INPUT_BG_COLOR, 0.9)
-    this.inputBg.fillRect(PADDING, this.consoleHeight - INPUT_HEIGHT - PADDING / 2, GAME_WIDTH - PADDING * 2, INPUT_HEIGHT)
+    // ─── Input background (RoundRectangle) ──────────────────────────
+    const inputY = this.consoleHeight - INPUT_HEIGHT / 2 - PADDING / 2
+    this.inputBg = new RoundRectangle(
+      this,
+      GAME_WIDTH / 2,
+      inputY,
+      GAME_WIDTH - PADDING * 2,
+      INPUT_HEIGHT,
+      CORNER_RADIUS,
+      INPUT_BG_COLOR,
+      0.9
+    )
+    this.add.existing(this.inputBg)
     this.consoleContainer.add(this.inputBg)
 
     // ─── Input text ─────────────────────────────────────────────────
-    this.inputText = this.add.text(PADDING + 8, this.consoleHeight - INPUT_HEIGHT - PADDING / 2 + 6, '> ', {
-      fontSize: '14px',
-      color: '#ffffff',
-      fontFamily: 'Consolas, monospace'
-    })
+    this.inputText = this.add.text(
+      PADDING + 8,
+      this.consoleHeight - INPUT_HEIGHT - PADDING / 2 + 6,
+      '> ',
+      { fontSize: '14px', color: '#ffffff', fontFamily: 'Consolas, monospace' }
+    )
     this.consoleContainer.add(this.inputText)
 
-    // ─── Cursor ─────────────────────────────────────────────────────
+    // ─── Cursor blink ───────────────────────────────────────────────
     this.cursorBlink = this.add.rectangle(
       PADDING + 8 + this.inputText.width,
       this.consoleHeight - INPUT_HEIGHT - PADDING / 2 + 6,
-      2,
-      16,
-      0xffffff
+      2, 16, 0xffffff
     )
     this.cursorBlink.setOrigin(0, 0)
     this.consoleContainer.add(this.cursorBlink)
@@ -122,6 +148,37 @@ export class ConsoleScene extends Phaser.Scene {
         this.cursorBlink.setVisible(this.cursorVisible)
       }
     })
+
+    // ─── Message area (BBCodeText + TextArea) ───────────────────────
+    const msgAreaWidth = GAME_WIDTH - PADDING * 2
+    const msgAreaHeight = this.consoleHeight - INPUT_HEIGHT - PADDING * 2.5
+
+    this.messageContent = new BBCodeText(this, 0, 0, '', {
+      fontSize: '13px',
+      fontFamily: 'Consolas, monospace',
+      color: '#ffffff',
+      wrap: { mode: 'char' as unknown as number, width: msgAreaWidth - 30 }
+    })
+    this.add.existing(this.messageContent)
+
+    this.messageArea = new TextArea(this, {
+      x: GAME_WIDTH / 2,
+      y: msgAreaHeight / 2,
+      width: msgAreaWidth,
+      height: msgAreaHeight,
+      text: this.messageContent,
+      space: { left: 8, right: 8, top: 4, bottom: 4 },
+      slider: {
+        track: { width: 6, radius: 3, color: 0x333355 } as RoundRectangle.IConfig,
+        thumb: { width: 6, radius: 3, color: 0x6666aa } as RoundRectangle.IConfig
+      },
+      mouseWheelScroller: { focus: false, speed: 0.2 },
+      clampChildOY: true,
+      alwaysScrollable: false,
+      content: ''
+    })
+    this.add.existing(this.messageArea)
+    this.consoleContainer.add(this.messageArea)
 
     // ─── Keyboard input ─────────────────────────────────────────────
     this.input.keyboard?.on('keydown', this.handleKeyDown, this)
@@ -141,10 +198,12 @@ export class ConsoleScene extends Phaser.Scene {
     })
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Keyboard handling
+  // ═══════════════════════════════════════════════════════════════════
+
   private handleKeyDown(event: KeyboardEvent): void {
     if (!consoleStore.getState().isOpen) return
-
-    // Prevent game scene from receiving input
     event.stopPropagation()
 
     switch (event.key) {
@@ -156,7 +215,6 @@ export class ConsoleScene extends Phaser.Scene {
 
       case 'Enter':
         if (this.completionItems.length > 0 && this.completionIndex >= 0) {
-          // Apply selected completion
           this.applyCompletion(this.completionItems[this.completionIndex].label)
         } else {
           this.executeCurrentInput()
@@ -211,7 +269,6 @@ export class ConsoleScene extends Phaser.Scene {
 
       default:
         if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          // Skip backtick to avoid toggling console
           if (event.key === '`') break
           this.inputBuffer += event.key
           this.updateInputDisplay()
@@ -222,14 +279,16 @@ export class ConsoleScene extends Phaser.Scene {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Command execution
+  // ═══════════════════════════════════════════════════════════════════
+
   private executeCurrentInput(): void {
     const input = this.inputBuffer.trim()
     if (!input) return
 
-    // Append input message (white)
     consoleStore.getState().appendMessage({ content: `> ${input}`, kind: 'input' })
 
-    // Execute command
     try {
       const result = commandRegistry.execute(input)
       consoleStore.getState().appendMessage({ content: result, kind: 'success' })
@@ -238,54 +297,48 @@ export class ConsoleScene extends Phaser.Scene {
       consoleStore.getState().appendMessage({ content: msg, kind: 'error' })
     }
 
-    // Push to history
     this.historyManager?.push(input)
 
-    // Clear input
     this.inputBuffer = ''
     this.updateInputDisplay()
     this.hideCompletions()
     this.refreshMessages()
-
-    // Auto-scroll to bottom
-    const totalMessages = consoleStore.getState().messages.length
-    this.scrollOffset = Math.max(0, totalMessages - MAX_VISIBLE_LINES)
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Display helpers
+  // ═══════════════════════════════════════════════════════════════════
 
   private updateInputDisplay(): void {
     this.inputText.setText(`> ${this.inputBuffer}`)
-    // Update cursor position
     this.cursorBlink.setX(PADDING + 8 + this.inputText.width)
     this.cursorVisible = true
     this.cursorBlink.setVisible(true)
   }
 
+  /**
+   * Rebuild message area content from ConsoleStore.
+   * Uses BBCode [color] tags for per-message coloring,
+   * rendered inside a rexUI TextArea for native scrolling.
+   */
   private refreshMessages(): void {
-    // Clear old message texts
-    this.messageTexts.forEach((t) => t.destroy())
-    this.messageTexts = []
-
     const messages = consoleStore.getState().messages
-    const startIdx = Math.max(0, this.scrollOffset)
-    const endIdx = Math.min(messages.length, startIdx + MAX_VISIBLE_LINES)
-    const messageAreaHeight = this.consoleHeight - INPUT_HEIGHT - PADDING * 2
-    const startY = messageAreaHeight - (endIdx - startIdx) * LINE_HEIGHT
+    const bbcodeLines = messages.map(
+      (m) => `[color=${BBCODE_COLOR[m.kind]}]${m.content}[/color]`
+    )
+    const fullText = bbcodeLines.join('\n')
 
-    for (let i = startIdx; i < endIdx; i++) {
-      const msg = messages[i]
-      const y = startY + (i - startIdx) * LINE_HEIGHT
-      const text = this.add.text(PADDING + 8, y, msg.content, {
-        fontSize: '13px',
-        color: COLOR_MAP[msg.kind],
-        fontFamily: 'Consolas, monospace',
-        wordWrap: { width: GAME_WIDTH - PADDING * 4 }
-      })
-      this.consoleContainer.add(text)
-      this.messageTexts.push(text)
-    }
+    this.messageArea.setText(fullText)
+
+    // Auto-scroll to bottom after layout resolves
+    this.time.delayedCall(0, () => {
+      this.messageArea.scrollToBottom()
+    })
   }
 
-  // ─── Completion methods (populated in Phase 4) ──────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // Completion UI
+  // ═══════════════════════════════════════════════════════════════════
 
   updateCompletions(): void {
     this.completionItems = completionEngine.getCompletions(this.inputBuffer)
@@ -295,22 +348,29 @@ export class ConsoleScene extends Phaser.Scene {
 
   renderCompletions(): void {
     this.clearCompletionUI()
-
     if (this.completionItems.length === 0) return
 
-    const inputY = this.consoleHeight - INPUT_HEIGHT - PADDING / 2
+    const completionY = this.consoleHeight - INPUT_HEIGHT - PADDING / 2
     const itemHeight = 22
     const totalHeight = this.completionItems.length * itemHeight + 4
 
-    // Background
-    this.completionBg = this.add.graphics()
-    this.completionBg.fillStyle(0x0a0a1a, 0.95)
-    this.completionBg.fillRect(PADDING, inputY - totalHeight - 4, GAME_WIDTH - PADDING * 2, totalHeight)
+    // Background (RoundRectangle)
+    this.completionBg = new RoundRectangle(
+      this,
+      GAME_WIDTH / 2,
+      completionY - totalHeight / 2 - 4,
+      GAME_WIDTH - PADDING * 2,
+      totalHeight,
+      CORNER_RADIUS,
+      0x0a0a1a,
+      0.95
+    )
+    this.add.existing(this.completionBg)
     this.consoleContainer.add(this.completionBg)
 
     // Items
     this.completionItems.forEach((item, idx) => {
-      const y = inputY - totalHeight - 4 + 2 + idx * itemHeight
+      const y = completionY - totalHeight - 4 + 2 + idx * itemHeight
       const isSelected = idx === this.completionIndex
       const color = isSelected ? '#ffff44' : '#aaaacc'
       const prefix = isSelected ? '► ' : '  '
@@ -333,17 +393,17 @@ export class ConsoleScene extends Phaser.Scene {
   private clearCompletionUI(): void {
     this.completionTexts.forEach((t) => t.destroy())
     this.completionTexts = []
-    this.completionBg?.destroy()
-    this.completionBg = undefined
+    if (this.completionBg) {
+      this.completionBg.destroy()
+      this.completionBg = undefined
+    }
   }
 
   private applyCompletion(label: string): void {
     const tokens = this.inputBuffer.split(/\s+/)
     if (tokens.length <= 1) {
-      // Completing the command name
       this.inputBuffer = '/' + label + ' '
     } else {
-      // Completing a parameter — replace last token
       tokens[tokens.length - 1] = label
       this.inputBuffer = tokens.join(' ') + ' '
     }
@@ -352,7 +412,9 @@ export class ConsoleScene extends Phaser.Scene {
     this.updateHighlights()
   }
 
-  // ─── Highlight methods (populated in Phase 5) ──────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // Highlight
+  // ═══════════════════════════════════════════════════════════════════
 
   updateHighlights(): void {
     if (!this.highlightManager) return
@@ -366,11 +428,11 @@ export class ConsoleScene extends Phaser.Scene {
 
   // ─── Integration setters ───────────────────────────────────────────
 
-  setHistoryManager(hm: import('../../console/HistoryManager').HistoryManager): void {
+  setHistoryManager(hm: HistoryManager): void {
     this.historyManager = hm
   }
 
-  setHighlightManager(hm: import('../../console/HighlightManager').HighlightManager): void {
+  setHighlightManager(hm: HighlightManager): void {
     this.highlightManager = hm
   }
 }

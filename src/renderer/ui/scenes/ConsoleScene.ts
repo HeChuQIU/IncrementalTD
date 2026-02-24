@@ -1,8 +1,7 @@
 import Phaser from 'phaser'
 import {
   RoundRectangle,
-  BBCodeText,
-  TextArea
+  BBCodeText
 } from 'phaser3-rex-plugins/templates/ui/ui-components.js'
 import { consoleStore } from '../../console/ConsoleStore'
 import { commandRegistry } from '../../console/CommandRegistry'
@@ -24,6 +23,8 @@ const INPUT_BG_COLOR = 0x16213e
 const PADDING = 10
 const INPUT_HEIGHT = 30
 const CORNER_RADIUS = 6
+const MAX_VISIBLE_LINES = 12
+const LINE_HEIGHT = 20
 
 // ─── BBCode color map ────────────────────────────────────────────────────────
 const BBCODE_COLOR: Record<ConsoleMessage['kind'], string> = {
@@ -42,9 +43,9 @@ export class ConsoleScene extends Phaser.Scene {
   private cursorTimer?: Phaser.Time.TimerEvent
   private cursorVisible = true
 
-  // ─── Rex‑plugins: scrollable message area ───────────────────────────
-  private messageArea!: TextArea
-  private messageContent!: BBCodeText
+  // ─── Rex‑plugins: message display ────────────────────────────────
+  private messageDisplay!: BBCodeText
+  private scrollOffset = 0
 
   // ─── Input state ────────────────────────────────────────────────────
   private inputBuffer = ''
@@ -149,36 +150,23 @@ export class ConsoleScene extends Phaser.Scene {
       }
     })
 
-    // ─── Message area (BBCodeText + TextArea) ───────────────────────
+    // ─── Message display (BBCodeText) ──────────────────────────────
     const msgAreaWidth = GAME_WIDTH - PADDING * 2
-    const msgAreaHeight = this.consoleHeight - INPUT_HEIGHT - PADDING * 2.5
 
-    this.messageContent = new BBCodeText(this, 0, 0, '', {
-      fontSize: '13px',
-      fontFamily: 'Consolas, monospace',
-      color: '#ffffff',
-      wrap: { mode: 'char' as unknown as number, width: msgAreaWidth - 30 }
-    })
-    this.add.existing(this.messageContent)
-
-    this.messageArea = new TextArea(this, {
-      x: GAME_WIDTH / 2,
-      y: msgAreaHeight / 2,
-      width: msgAreaWidth,
-      height: msgAreaHeight,
-      text: this.messageContent,
-      space: { left: 8, right: 8, top: 4, bottom: 4 },
-      slider: {
-        track: { width: 6, radius: 3, color: 0x333355 } as RoundRectangle.IConfig,
-        thumb: { width: 6, radius: 3, color: 0x6666aa } as RoundRectangle.IConfig
-      },
-      mouseWheelScroller: { focus: false, speed: 0.2 },
-      clampChildOY: true,
-      alwaysScrollable: false,
-      content: ''
-    })
-    this.add.existing(this.messageArea)
-    this.consoleContainer.add(this.messageArea)
+    this.messageDisplay = new BBCodeText(
+      this,
+      PADDING + 8,
+      PADDING,
+      '',
+      {
+        fontSize: '13px',
+        fontFamily: 'Consolas, monospace',
+        color: '#ffffff',
+        wrap: { mode: 'char' as unknown as number, width: msgAreaWidth - 16 }
+      }
+    )
+    this.add.existing(this.messageDisplay)
+    this.consoleContainer.add(this.messageDisplay)
 
     // ─── Keyboard input ─────────────────────────────────────────────
     this.input.keyboard?.on('keydown', this.handleKeyDown, this)
@@ -303,6 +291,10 @@ export class ConsoleScene extends Phaser.Scene {
     this.updateInputDisplay()
     this.hideCompletions()
     this.refreshMessages()
+
+    // Auto-scroll to bottom
+    const totalMessages = consoleStore.getState().messages.length
+    this.scrollOffset = Math.max(0, totalMessages - MAX_VISIBLE_LINES)
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -317,23 +309,27 @@ export class ConsoleScene extends Phaser.Scene {
   }
 
   /**
-   * Rebuild message area content from ConsoleStore.
-   * Uses BBCode [color] tags for per-message coloring,
-   * rendered inside a rexUI TextArea for native scrolling.
+   * Rebuild message display from ConsoleStore.
+   * Uses BBCodeText with [color] tags for per-message coloring.
+   * Shows the last MAX_VISIBLE_LINES messages, bottom-aligned above the input.
    */
   private refreshMessages(): void {
     const messages = consoleStore.getState().messages
-    const bbcodeLines = messages.map(
+    const startIdx = Math.max(0, this.scrollOffset)
+    const endIdx = Math.min(messages.length, startIdx + MAX_VISIBLE_LINES)
+    const visible = messages.slice(startIdx, endIdx)
+
+    const bbcodeLines = visible.map(
       (m) => `[color=${BBCODE_COLOR[m.kind]}]${m.content}[/color]`
     )
+
     const fullText = bbcodeLines.join('\n')
+    this.messageDisplay.setText(fullText)
 
-    this.messageArea.setText(fullText)
-
-    // Auto-scroll to bottom after layout resolves
-    this.time.delayedCall(0, () => {
-      this.messageArea.scrollToBottom()
-    })
+    // Bottom-align: position text so last line sits just above input area
+    const messageAreaBottom = this.consoleHeight - INPUT_HEIGHT - PADDING
+    const textHeight = this.messageDisplay.height
+    this.messageDisplay.setY(Math.max(PADDING, messageAreaBottom - textHeight))
   }
 
   // ═══════════════════════════════════════════════════════════════════

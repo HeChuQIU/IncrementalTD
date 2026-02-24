@@ -49,6 +49,8 @@ export class ConsoleScene extends Phaser.Scene {
 
   // ─── Input state ────────────────────────────────────────────────────
   private inputBuffer = ''
+  private cursorPos = 0
+  private charWidth = 0
 
   // ─── Completion state ───────────────────────────────────────────────
   private completionItems: CompletionItem[] = []
@@ -150,6 +152,11 @@ export class ConsoleScene extends Phaser.Scene {
       }
     })
 
+    // ─── Measure monospace char width for cursor positioning ────────
+    const sample = this.add.text(0, -100, 'M', { fontSize: '14px', fontFamily: 'Consolas, monospace' })
+    this.charWidth = sample.width
+    sample.destroy()
+
     // ─── Message display (BBCodeText) ──────────────────────────────
     const msgAreaWidth = GAME_WIDTH - PADDING * 2
 
@@ -216,6 +223,34 @@ export class ConsoleScene extends Phaser.Scene {
         }
         break
 
+      case 'ArrowLeft':
+        event.preventDefault()
+        if (this.cursorPos > 0) {
+          this.cursorPos--
+          this.updateCursorPosition()
+        }
+        break
+
+      case 'ArrowRight':
+        event.preventDefault()
+        if (this.cursorPos < this.inputBuffer.length) {
+          this.cursorPos++
+          this.updateCursorPosition()
+        }
+        break
+
+      case 'Home':
+        event.preventDefault()
+        this.cursorPos = 0
+        this.updateCursorPosition()
+        break
+
+      case 'End':
+        event.preventDefault()
+        this.cursorPos = this.inputBuffer.length
+        this.updateCursorPosition()
+        break
+
       case 'ArrowUp':
         event.preventDefault()
         if (this.completionItems.length > 0) {
@@ -225,6 +260,7 @@ export class ConsoleScene extends Phaser.Scene {
           const cmd = this.historyManager.navigateUp()
           if (cmd !== null) {
             this.inputBuffer = cmd
+            this.cursorPos = cmd.length
             this.updateInputDisplay()
           }
         }
@@ -239,16 +275,32 @@ export class ConsoleScene extends Phaser.Scene {
           const cmd = this.historyManager.navigateDown()
           if (cmd !== null) {
             this.inputBuffer = cmd
+            this.cursorPos = cmd.length
           } else {
             this.inputBuffer = ''
+            this.cursorPos = 0
           }
           this.updateInputDisplay()
         }
         break
 
       case 'Backspace':
-        if (this.inputBuffer.length > 0) {
-          this.inputBuffer = this.inputBuffer.slice(0, -1)
+        if (this.cursorPos > 0) {
+          this.inputBuffer =
+            this.inputBuffer.slice(0, this.cursorPos - 1) +
+            this.inputBuffer.slice(this.cursorPos)
+          this.cursorPos--
+          this.updateInputDisplay()
+          this.updateCompletions()
+          this.updateHighlights()
+        }
+        break
+
+      case 'Delete':
+        if (this.cursorPos < this.inputBuffer.length) {
+          this.inputBuffer =
+            this.inputBuffer.slice(0, this.cursorPos) +
+            this.inputBuffer.slice(this.cursorPos + 1)
           this.updateInputDisplay()
           this.updateCompletions()
           this.updateHighlights()
@@ -258,7 +310,11 @@ export class ConsoleScene extends Phaser.Scene {
       default:
         if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
           if (event.key === '`') break
-          this.inputBuffer += event.key
+          this.inputBuffer =
+            this.inputBuffer.slice(0, this.cursorPos) +
+            event.key +
+            this.inputBuffer.slice(this.cursorPos)
+          this.cursorPos++
           this.updateInputDisplay()
           this.updateCompletions()
           this.updateHighlights()
@@ -288,6 +344,7 @@ export class ConsoleScene extends Phaser.Scene {
     this.historyManager?.push(input)
 
     this.inputBuffer = ''
+    this.cursorPos = 0
     this.updateInputDisplay()
     this.hideCompletions()
     this.refreshMessages()
@@ -303,7 +360,14 @@ export class ConsoleScene extends Phaser.Scene {
 
   private updateInputDisplay(): void {
     this.inputText.setText(`> ${this.inputBuffer}`)
-    this.cursorBlink.setX(PADDING + 8 + this.inputText.width)
+    this.updateCursorPosition()
+  }
+
+  /** Reposition cursor blink based on cursorPos and reset blink visibility */
+  private updateCursorPosition(): void {
+    // "> " prefix = 2 chars, then cursorPos chars into the buffer
+    const offsetChars = 2 + this.cursorPos
+    this.cursorBlink.setX(PADDING + 8 + this.charWidth * offsetChars)
     this.cursorVisible = true
     this.cursorBlink.setVisible(true)
   }
@@ -403,6 +467,7 @@ export class ConsoleScene extends Phaser.Scene {
       tokens[tokens.length - 1] = label
       this.inputBuffer = tokens.join(' ') + ' '
     }
+    this.cursorPos = this.inputBuffer.length
     this.updateInputDisplay()
     this.hideCompletions()
     this.updateHighlights()

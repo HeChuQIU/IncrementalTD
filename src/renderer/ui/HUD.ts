@@ -1,29 +1,43 @@
 import Phaser from 'phaser'
+import { SCIFI_COLORS, SCIFI_GEOMETRY } from './styles/geometry' // Wait, SCIFI_COLORS is in colors.ts
+// Let's fix the import
+import { SCIFI_COLORS } from './styles/colors'
+import { SCIFI_GEOMETRY } from './styles/geometry'
 
 const TEXT_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
   fontSize: '16px',
-  color: '#ffffff',
-  stroke: '#000000',
-  strokeThickness: 3
+  fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+  color: '#' + SCIFI_COLORS.uiTextPrimary.toString(16).padStart(6, '0'),
+  stroke: '#' + SCIFI_COLORS.uiBackground.toString(16).padStart(6, '0'),
+  strokeThickness: 4
 }
 
 export class HUD {
   private scoreText: Phaser.GameObjects.Text
   private killsText: Phaser.GameObjects.Text
+  private bgPanel: Phaser.GameObjects.Graphics
 
   constructor(scene: Phaser.Scene) {
+    this.bgPanel = scene.add.graphics()
+    this.bgPanel.fillStyle(SCIFI_COLORS.uiBackground, 0.8)
+    this.bgPanel.lineStyle(SCIFI_GEOMETRY.ui.borderWidth, SCIFI_COLORS.uiBorder, 0.5)
+    this.bgPanel.fillRect(10, 10, 150, 60)
+    this.bgPanel.strokeRect(10, 10, 150, 60)
+    this.bgPanel.setScrollFactor(0)
+    this.bgPanel.setDepth(9)
+
     this.scoreText = scene.add
-      .text(10, 10, 'Score: 0', TEXT_STYLE)
+      .text(20, 18, 'SCORE: 0', TEXT_STYLE)
       .setScrollFactor(0)
       .setDepth(10)
     this.killsText = scene.add
-      .text(10, 34, 'Kills: 0', TEXT_STYLE)
+      .text(20, 42, 'KILLS: 0', TEXT_STYLE)
       .setScrollFactor(0)
       .setDepth(10)
   }
 
   update(score: number, kills: number): void {
-    this.scoreText.setText(`Score: ${score}`)
-    this.killsText.setText(`Kills: ${kills}`)
+    this.scoreText.setText(`SCORE: ${score}`)
+    this.killsText.setText(`KILLS: ${kills}`)
   }
 }

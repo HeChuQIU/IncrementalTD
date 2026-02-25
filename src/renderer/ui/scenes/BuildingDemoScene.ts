@@ -7,18 +7,14 @@ import { registerTileCommand, setTileAt } from '../../console/commands/tileComma
 import { drillProductionSystem } from '../../core/systems/DrillProductionSystem'
 import { storageData } from '../../core/buildings/itemStorageStore'
 import { consoleStore } from '../../console/ConsoleStore'
+import { SCIFI_COLORS } from '../styles/colors'
+import { SCIFI_GEOMETRY } from '../styles/geometry'
 
-/** One shortcut button entry */
-interface ShortcutBtn {
-  label: string
-  command: string
-}
-
-const SHORTCUT_BUTTONS: ShortcutBtn[] = [
-  { label: '📋 building list',          command: '/building list' },
-  { label: '🔍 info drill',             command: '/building info drill' },
-  { label: '🔩 place drill @ (3,3)',    command: '/building place drill 3 3' },
-  { label: '🗺️ set tile copper_ore',    command: '/tile set 5 5 copper_ore' },
+const SHORTCUT_COMMANDS = [
+  { label: 'building list',           command: '/building list' },
+  { label: 'building info drill',     command: '/building info drill' },
+  { label: 'place drill @ (3,3)',     command: '/building place drill 3 3' },
+  { label: 'tile set 5 5 copper_ore', command: '/tile set 5 5 copper_ore' },
 ]
 
 export class BuildingDemoScene extends Phaser.Scene {
@@ -30,21 +26,21 @@ export class BuildingDemoScene extends Phaser.Scene {
   }
 
   create(): void {
-    // 1. Init ECS World
+    // ─── ECS ────────────────────────────────────────────────────────
     this.world = createWorld()
 
-    // 2. Init Buildings & Commands
+    // ─── Commands ───────────────────────────────────────────────────
     initBuildings()
     registerBuildingCommand()
     registerTileCommand()
     setWorldAccessor(() => this.world)
 
-    // 3. Background
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x1a1a2e)
+    // ─── Background ─────────────────────────────────────────────────
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, SCIFI_COLORS.background)
 
-    // 4. Grid lines
+    // ─── Grid ───────────────────────────────────────────────────────
     const gridGfx = this.add.graphics()
-    gridGfx.lineStyle(1, 0x333355, 0.8)
+    gridGfx.lineStyle(1, SCIFI_COLORS.gridLine, 0.8)
     for (let x = 0; x <= GAME_WIDTH; x += TILE_SIZE) {
       gridGfx.moveTo(x, 0); gridGfx.lineTo(x, GAME_HEIGHT)
     }
@@ -53,98 +49,121 @@ export class BuildingDemoScene extends Phaser.Scene {
     }
     gridGfx.strokePath()
 
-    // 5. Preset copper ore tiles 3,3 → 4,4 (2×2 block)
+    // ─── Copper ore tiles (3,3)–(4,4) ───────────────────────────────
     const oreGfx = this.add.graphics()
-    oreGfx.fillStyle(0xb87333, 0.55)
     const oreGroup = [
       { x: 3, y: 3 }, { x: 4, y: 3 },
       { x: 3, y: 4 }, { x: 4, y: 4 },
     ]
     oreGroup.forEach(pos => {
+      oreGfx.fillStyle(0xb87333, 0.45)
       oreGfx.fillRect(pos.x * TILE_SIZE, pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+      oreGfx.lineStyle(1, 0xd4935a, 0.8)
+      oreGfx.strokeRect(pos.x * TILE_SIZE, pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
       setTileAt(pos.x, pos.y, 'copper_ore')
     })
-    // Label
-    this.add.text(3 * TILE_SIZE + 2, 3 * TILE_SIZE + 2, 'Ore', {
-      fontSize: '10px', color: '#ffcc88'
+    this.add.text(3 * TILE_SIZE + 2, 3 * TILE_SIZE + 2, 'ORE', {
+      fontSize: '9px', fontFamily: SCIFI_GEOMETRY.ui.fontFamily, color: '#d4935a'
     })
 
-    // 6. Debug info panel (top-left)
+    // ─── Debug info (top-left) ───────────────────────────────────────
     this.debugText = this.add.text(8, 8, '', {
       fontSize: '13px',
-      fontFamily: 'monospace',
-      color: '#e0e0ff',
-      backgroundColor: '#00000088',
-      padding: { x: 6, y: 4 },
+      fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+      color: '#' + SCIFI_COLORS.uiTextPrimary.toString(16).padStart(6, '0'),
+      backgroundColor: '#' + SCIFI_COLORS.uiBackground.toString(16).padStart(6, '0') + 'cc',
+      padding: { x: 8, y: 5 },
     }).setDepth(10)
 
-    // 7. Shortcut button panel (right side)
+    // ─── Shortcut button panel (right side) ─────────────────────────
     this._buildShortcutPanel()
 
-    // 8. Hint text at bottom
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 14,
+    // ─── Bottom hint ─────────────────────────────────────────────────
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8,
       '按 ` 键打开/关闭控制台 · 点击右侧按钮快速填入命令',
-      { fontSize: '12px', color: '#8888aa', fontFamily: 'monospace' }
+      {
+        fontSize: '11px',
+        fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+        color: '#' + SCIFI_COLORS.uiTextSecondary.toString(16).padStart(6, '0'),
+      }
     ).setOrigin(0.5, 1).setDepth(10)
 
-    // 9. Launch ConsoleScene (only if not already running)
+    // ─── Console ─────────────────────────────────────────────────────
     if (!this.scene.isActive('ConsoleScene')) {
       this.scene.launch('ConsoleScene')
     }
   }
 
-  /** Build shortcut buttons on the right edge. */
+  // ─── Shortcut panel ──────────────────────────────────────────────
   private _buildShortcutPanel(): void {
-    const panelX = GAME_WIDTH - 8
-    const startY = 60
-    const btnH = 28
-    const gap = 6
-    const maxW = 220
+    const BTN_W = 228
+    const BTN_H = 30
+    const GAP = 5
+    const RIGHT_MARGIN = 8
+    const panelX = GAME_WIDTH - RIGHT_MARGIN - BTN_W
+    const startY = 55
+    const panelPad = 10
+    const panelH = SHORTCUT_COMMANDS.length * (BTN_H + GAP) + panelPad * 2
 
-    // Panel background
-    const panelGfx = this.add.graphics().setDepth(9)
-    const panelH = SHORTCUT_BUTTONS.length * (btnH + gap) + gap + 20
-    panelGfx.fillStyle(0x0d0d1a, 0.85)
-    panelGfx.fillRoundedRect(panelX - maxW - 8, startY - 16, maxW + 16, panelH, 6)
+    // Panel bg
+    const panelGfx = this.add.graphics().setDepth(8)
+    panelGfx.fillStyle(SCIFI_COLORS.uiBackground, 0.9)
+    panelGfx.fillRoundedRect(panelX - panelPad, startY - panelPad - 18, BTN_W + panelPad * 2, panelH + 18, SCIFI_GEOMETRY.ui.cornerRadius)
+    panelGfx.lineStyle(1, SCIFI_COLORS.uiBorder, 0.8)
+    panelGfx.strokeRoundedRect(panelX - panelPad, startY - panelPad - 18, BTN_W + panelPad * 2, panelH + 18, SCIFI_GEOMETRY.ui.cornerRadius)
 
-    // Title
-    this.add.text(panelX - 4, startY - 12, '快捷命令', {
-      fontSize: '11px', color: '#6688cc', fontFamily: 'monospace'
-    }).setOrigin(1, 0).setDepth(10)
+    // Panel title
+    this.add.text(panelX + BTN_W / 2, startY - 18, '[ 快捷命令 ]', {
+      fontSize: '11px', fontFamily: SCIFI_GEOMETRY.ui.fontFamily, color: '#' + SCIFI_COLORS.uiBorder.toString(16).padStart(6, '0')
+    }).setOrigin(0.5, 0).setDepth(9)
 
-    SHORTCUT_BUTTONS.forEach(({ label, command }, i) => {
-      const y = startY + i * (btnH + gap)
-      const btnGfx = this.add.graphics().setDepth(10)
+    SHORTCUT_COMMANDS.forEach(({ label, command }, i) => {
+      const btnY = startY + i * (BTN_H + GAP)
+      const btnGfx = this.add.graphics().setDepth(9)
+      const clrNormal = SCIFI_COLORS.uiBorder
+      const clrHover  = SCIFI_COLORS.playerGlow
 
-      const drawBtn = (hover: boolean): void => {
+      const draw = (hover: boolean): void => {
         btnGfx.clear()
-        btnGfx.fillStyle(hover ? 0x2244aa : 0x162244, 1)
-        btnGfx.fillRoundedRect(panelX - maxW - 4, y, maxW, btnH, 4)
-        btnGfx.lineStyle(1, hover ? 0x4466dd : 0x2244aa)
-        btnGfx.strokeRoundedRect(panelX - maxW - 4, y, maxW, btnH, 4)
+        btnGfx.fillStyle(hover ? SCIFI_COLORS.playerPrimary : SCIFI_COLORS.armorDark, 0.8)
+        btnGfx.fillRoundedRect(panelX, btnY, BTN_W, BTN_H, 3)
+        btnGfx.lineStyle(1, hover ? clrHover : clrNormal)
+        btnGfx.strokeRoundedRect(panelX, btnY, BTN_W, BTN_H, 3)
       }
-      drawBtn(false)
+      draw(false)
 
-      const txt = this.add.text(panelX - maxW / 2 - 4, y + btnH / 2, label, {
-        fontSize: '12px', fontFamily: 'monospace', color: '#aabbff'
-      }).setOrigin(0.5).setDepth(11)
-
-      // Hit area
-      const zone = this.add.zone(panelX - maxW - 4, y, maxW, btnH)
-        .setOrigin(0).setInteractive({ cursor: 'pointer' }).setDepth(12)
-
-      zone.on('pointerover', () => { drawBtn(true); txt.setColor('#ffffff') })
-      zone.on('pointerout',  () => { drawBtn(false); txt.setColor('#aabbff') })
-      zone.on('pointerdown', () => {
-        consoleStore.getState().openConsoleWithInput(command)
+      // Use a Text game object as the clickable target (more reliable than Zone)
+      const btnText = this.add.text(panelX + 10, btnY + BTN_H / 2, '> ' + label, {
+        fontSize: '12px',
+        fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+        color: '#' + SCIFI_COLORS.uiTextSecondary.toString(16).padStart(6, '0'),
       })
+        .setOrigin(0, 0.5)
+        .setDepth(10)
+        .setInteractive({ cursor: 'pointer' })
+
+      // Use a transparent Rectangle (not Zone) as the wider hit area
+      const hitRect = this.add.rectangle(panelX + BTN_W / 2, btnY + BTN_H / 2, BTN_W, BTN_H)
+        .setInteractive({ cursor: 'pointer' })
+        .setDepth(10)
+        .setAlpha(0.001) // nearly invisible but exists in display list
+
+      const onOver = (): void => { draw(true); btnText.setColor('#' + SCIFI_COLORS.playerHighlight.toString(16).padStart(6, '0')) }
+      const onOut  = (): void => { draw(false); btnText.setColor('#' + SCIFI_COLORS.uiTextSecondary.toString(16).padStart(6, '0')) }
+      const onDown = (): void => { consoleStore.getState().openConsoleWithInput(command) }
+
+      hitRect.on('pointerover', onOver)
+      hitRect.on('pointerout',  onOut)
+      hitRect.on('pointerdown', onDown)
+      btnText.on('pointerover', onOver)
+      btnText.on('pointerout',  onOut)
+      btnText.on('pointerdown', onDown)
     })
   }
 
   update(time: number): void {
     drillProductionSystem(this.world, time)
 
-    // Sum all stored copper_ore across all entity storages
     let copperCount = 0
     for (const storage of storageData.values()) {
       const item = storage.items.find(i => i.itemId === 'copper_ore')
@@ -153,8 +172,8 @@ export class BuildingDemoScene extends Phaser.Scene {
 
     this.debugText.setText(
       `[ Building Demo ]\n` +
-      `Time:       ${(time / 1000).toFixed(1)}s\n` +
-      `Copper Ore: ${copperCount}`
+      `Time       ${(time / 1000).toFixed(1)}s\n` +
+      `Copper Ore ${copperCount}`
     )
   }
 }

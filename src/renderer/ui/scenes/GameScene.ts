@@ -10,6 +10,7 @@ import { enemyMoveSystem } from '../../core/systems/EnemyMoveSystem'
 import { Health, Position } from '../../core/components'
 import { TOWER_CONFIG, ENEMY_PATH, GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
 import { gameStore } from '../../store/gameStore'
+import { consoleStore } from '../../console/ConsoleStore'
 import { HUD } from '../HUD'
 
 export class GameScene extends Phaser.Scene {
@@ -49,6 +50,17 @@ export class GameScene extends Phaser.Scene {
 
     // ─── HUD ────────────────────────────────────────────────────────────────
     this.hud = new HUD(this)
+
+    // ─── Console ────────────────────────────────────────────────────────────
+    this.scene.launch('ConsoleScene')
+
+    // Toggle console with backtick key
+    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (event.key === '`') {
+        event.preventDefault()
+        consoleStore.getState().toggleConsole()
+      }
+    })
 
     gameStore.getState().startGame()
   }
@@ -114,6 +126,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ─── Sprite helpers ───────────────────────────────────────────────────────
+
+  /** Expose ECS world for console commands */
+  getWorld(): IWorld {
+    return this.world
+  }
 
   private _buildTowerSprite(x: number, y: number, range: number): void {
     // Range circle (debug overlay)

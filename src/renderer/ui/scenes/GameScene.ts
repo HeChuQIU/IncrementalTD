@@ -7,17 +7,19 @@ import { bulletMoveSystem } from '../../core/systems/BulletMoveSystem'
 import { applyDamage } from '../../core/systems/DamageSystem'
 import { enemySpawnSystem, resetSpawnTimer } from '../../core/systems/EnemySpawnSystem'
 import { enemyMoveSystem } from '../../core/systems/EnemyMoveSystem'
-import { Health, Position } from '../../core/components'
+import { Health, Position, Velocity } from '../../core/components'
 import { TOWER_CONFIG, ENEMY_PATH, GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
 import { gameStore } from '../../store/gameStore'
 import { consoleStore } from '../../console/ConsoleStore'
 import { HUD } from '../HUD'
+import { generateTowerTexture, generateEnemyTexture, drawBullet } from '../styles/geometry'
+import { SCIFI_COLORS } from '../styles/colors'
 
 export class GameScene extends Phaser.Scene {
   private world!: IWorld
   private enemySprites = new Map<
     number,
-    { container: Phaser.GameObjects.Container; hpFill: Phaser.GameObjects.Graphics }
+    { container: Phaser.GameObjects.Container; hpFill: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Sprite }
   >()
   private bulletSprites = new Map<number, Phaser.GameObjects.Graphics>()
   private hud!: HUD
@@ -31,10 +33,46 @@ export class GameScene extends Phaser.Scene {
     resetSpawnTimer()
     gameStore.getState().reset()
 
+    // ─── Generate Textures ──────────────────────────────────────────────────
+    generateTowerTexture({ scene: this, key: 'tower_texture' })
+    generateEnemyTexture({ scene: this, key: 'enemy_texture' })
+
     // ─── Map ────────────────────────────────────────────────────────────────
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x2d5a27)
-    // Road
-    this.add.rectangle(GAME_WIDTH / 2, 300, GAME_WIDTH, 60, 0x8b7355)
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, SCIFI_COLORS.background)
+    
+    // Grid lines
+    const gridGfx = this.add.graphics()
+    gridGfx.lineStyle(1, SCIFI_COLORS.gridLine, 0.8) // 提高网格线不透明度
+    for (let x = 0; x < GAME_WIDTH; x += 40) {
+      gridGfx.moveTo(x, 0)
+      gridGfx.lineTo(x, GAME_HEIGHT)
+    }
+    for (let y = 0; y < GAME_HEIGHT; y += 40) {
+      gridGfx.moveTo(0, y)
+      gridGfx.lineTo(GAME_WIDTH, y)
+    }
+    gridGfx.strokePath()
+
+    // Road (Sci-fi path)
+    const roadGfx = this.add.graphics()
+    roadGfx.lineStyle(4, SCIFI_COLORS.gridHighlight, 1) // 提高路径不透明度
+    roadGfx.beginPath()
+    roadGfx.moveTo(ENEMY_PATH[0].x, ENEMY_PATH[0].y)
+    for (let i = 1; i < ENEMY_PATH.length; i++) {
+      roadGfx.lineTo(ENEMY_PATH[i].x, ENEMY_PATH[i].y)
+    }
+    roadGfx.strokePath()
+    
+    // Road glow
+    const roadGlow = this.add.graphics()
+    roadGlow.lineStyle(12, SCIFI_COLORS.gridHighlight, 0.4) // 提高发光不透明度
+    roadGlow.setBlendMode(Phaser.BlendModes.ADD)
+    roadGlow.beginPath()
+    roadGlow.moveTo(ENEMY_PATH[0].x, ENEMY_PATH[0].y)
+    for (let i = 1; i < ENEMY_PATH.length; i++) {
+      roadGlow.lineTo(ENEMY_PATH[i].x, ENEMY_PATH[i].y)
+    }
+    roadGlow.strokePath()
 
     // ─── Tower ──────────────────────────────────────────────────────────────
     const towerEid = createTower(this.world, TOWER_CONFIG.x, TOWER_CONFIG.y)
@@ -82,9 +120,11 @@ export class GameScene extends Phaser.Scene {
     // 3. Tower attacks (includes US3 target-lock logic)
     towerAttackSystem(this.world, time, (bulletEid) => {
       const g = this.add.graphics()
-      g.fillStyle(0xffff44)
-      g.fillCircle(0, 0, 4)
-      g.setPosition(Position.x[bulletEid], Position.y[bulletEid])
+      g.setBlendMode(Phaser.BlendModes.ADD)
+      const vx = Velocity.x[bulletEid]
+      const vy = Velocity.y[bulletEid]
+      const rotation = Math.atan2(vy, vx)
+      drawBullet({ graphics: g, x: Position.x[bulletEid], y: Position.y[bulletEid], rotation })
       this.bulletSprites.set(bulletEid, g)
     })
 
@@ -94,6 +134,17 @@ export class GameScene extends Phaser.Scene {
       time,
       delta,
       (bulletEid, targetEid, damage) => {
+        // Hit flash
+        const enemyView = this.enemySprites.get(targetEid)
+        if (enemyView && enemyView.sprite.active) {
+          enemyView.sprite.setTintFill(0xffffff)
+          this.time.delayedCall(50, () => {
+            if (enemyView.sprite.active) {
+              enemyView.sprite.clearTint()
+            }
+          })
+        }
+
         applyDamage(this.world, targetEid, damage, (diedEid) => {
           this._destroyEnemySprite(diedEid)
           gameStore.getState().incrementKills()
@@ -113,11 +164,14 @@ export class GameScene extends Phaser.Scene {
       const max = Math.max(1, Health.max[eid])
       const ratio = Phaser.Math.Clamp(current / max, 0, 1)
       enemyView.hpFill.clear()
-      enemyView.hpFill.fillStyle(0x44ff44)
-      enemyView.hpFill.fillRect(-14, 18, 28 * ratio, 4)
+      enemyView.hpFill.fillStyle(SCIFI_COLORS.enemyPrimary)
+      enemyView.hpFill.fillRect(-14, 18, 28 * ratio, 3)
     }
     for (const [eid, g] of this.bulletSprites) {
-      g.setPosition(Position.x[eid], Position.y[eid])
+      const vx = Velocity.x[eid]
+      const vy = Velocity.y[eid]
+      const rotation = Math.atan2(vy, vx)
+      drawBullet({ graphics: g, x: Position.x[eid], y: Position.y[eid], rotation })
     }
 
     // 6. Update HUD
@@ -135,42 +189,33 @@ export class GameScene extends Phaser.Scene {
   private _buildTowerSprite(x: number, y: number, range: number): void {
     // Range circle (debug overlay)
     const rangeGfx = this.add.graphics()
-    rangeGfx.lineStyle(1, 0x4444ff, 0.25)
+    rangeGfx.lineStyle(1, SCIFI_COLORS.gridHighlight, 0.25)
     rangeGfx.strokeCircle(x, y, range)
 
     // Tower body
-    const body = this.add.graphics()
-    body.fillStyle(0x4488ff)
-    body.fillRect(x - 16, y - 16, 32, 32)
-    body.lineStyle(2, 0x88aaff)
-    body.strokeRect(x - 16, y - 16, 32, 32)
-
-    // Barrel
-    const barrel = this.add.graphics()
-    barrel.lineStyle(4, 0x88aaff)
-    barrel.lineBetween(x, y, x + 20, y)
+    const towerSprite = this.add.sprite(x, y, 'tower_texture')
+    towerSprite.setBlendMode(Phaser.BlendModes.ADD)
   }
 
   private _buildEnemySprite(
     x: number,
     y: number
-  ): { container: Phaser.GameObjects.Container; hpFill: Phaser.GameObjects.Graphics } {
+  ): { container: Phaser.GameObjects.Container; hpFill: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Sprite } {
     const container = this.add.container(x, y)
 
-    const body = this.add.graphics()
-    body.fillStyle(0xff4444)
-    body.fillCircle(0, 0, 14)
+    const sprite = this.add.sprite(0, 0, 'enemy_texture')
+    sprite.setBlendMode(Phaser.BlendModes.ADD)
 
     const hpBg = this.add.graphics()
-    hpBg.fillStyle(0x333333)
-    hpBg.fillRect(-14, 18, 28, 4)
+    hpBg.fillStyle(SCIFI_COLORS.uiBackground, 0.8)
+    hpBg.fillRect(-14, 18, 28, 3)
 
     const hpFill = this.add.graphics()
-    hpFill.fillStyle(0x44ff44)
-    hpFill.fillRect(-14, 18, 28, 4)
+    hpFill.fillStyle(SCIFI_COLORS.enemyPrimary)
+    hpFill.fillRect(-14, 18, 28, 3)
 
-    container.add([body, hpBg, hpFill])
-    return { container, hpFill }
+    container.add([sprite, hpBg, hpFill])
+    return { container, hpFill, sprite }
   }
 
   private _destroyEnemySprite(eid: number): void {

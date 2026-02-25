@@ -22,6 +22,7 @@ npm test; npm run lint
 TypeScript 5.x: Follow standard conventions
 
 ## Recent Changes
+- 003-scifi-minimal-style: Added TypeScript 5.x + Phaser 3, bitECS, Zustand
 
 - 001-tower-defense-demo: Added TypeScript 5.x + Phaser 3, bitECS, Zustand, Vite, Electron
 

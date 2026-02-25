@@ -15,22 +15,24 @@ import { HighlightManager, parseCoordinatesFromInput } from '../../console/Highl
 import { completionEngine } from '../../console/CompletionEngine'
 import type { ConsoleMessage, CompletionItem } from '../../console/types'
 import { GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
+import { SCIFI_COLORS } from '../styles/colors'
+import { SCIFI_GEOMETRY } from '../styles/geometry'
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 const CONSOLE_HEIGHT_RATIO = 0.4
-const CONSOLE_BG_ALPHA = 0.75
-const CONSOLE_BG_COLOR = 0x1a1a2e
+const CONSOLE_BG_ALPHA = 0.85
+const CONSOLE_BG_COLOR = SCIFI_COLORS.uiBackground
 const PADDING = 10
 const INPUT_HEIGHT = 30
-const CORNER_RADIUS = 6
+const CORNER_RADIUS = SCIFI_GEOMETRY.ui.cornerRadius
 const MAX_VISIBLE_LINES = 12
 const LINE_HEIGHT = 20
 
 // ─── BBCode color map ────────────────────────────────────────────────────────
 const BBCODE_COLOR: Record<ConsoleMessage['kind'], string> = {
-  input: '#ffffff',
-  success: '#44ff44',
-  error: '#ff4444'
+  input: '#' + SCIFI_COLORS.uiTextPrimary.toString(16).padStart(6, '0'),
+  success: '#' + SCIFI_COLORS.playerGlow.toString(16).padStart(6, '0'),
+  error: '#' + SCIFI_COLORS.enemyDanger.toString(16).padStart(6, '0')
 }
 
 export class ConsoleScene extends Phaser.Scene {
@@ -100,6 +102,7 @@ export class ConsoleScene extends Phaser.Scene {
       CONSOLE_BG_COLOR,
       CONSOLE_BG_ALPHA
     )
+    this.consoleBg.setStrokeStyle(SCIFI_GEOMETRY.ui.borderWidth, SCIFI_COLORS.uiBorder, 0.8)
     this.add.existing(this.consoleBg)
     this.consoleContainer.add(this.consoleBg)
 
@@ -111,9 +114,19 @@ export class ConsoleScene extends Phaser.Scene {
       PADDING + 4,
       this.consoleHeight - INPUT_HEIGHT - PADDING / 2 + 6,
       '> ',
-      { fontSize: '14px', color: '#888888', fontFamily: 'Consolas, monospace' }
+      { fontSize: '14px', color: '#' + SCIFI_COLORS.uiTextHighlight.toString(16).padStart(6, '0'), fontFamily: SCIFI_GEOMETRY.ui.fontFamily }
     )
     this.consoleContainer.add(this.promptLabel)
+
+    // Sci-fi prompt blink effect
+    this.tweens.add({
+      targets: this.promptLabel,
+      alpha: 0.3,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    })
 
     const promptW = this.promptLabel.width
     const fieldWidth = GAME_WIDTH - PADDING * 2 - promptW - 4
@@ -125,16 +138,16 @@ export class ConsoleScene extends Phaser.Scene {
       width: fieldWidth,
       height: INPUT_HEIGHT,
       background: {
-        color: 0x16213e,
+        color: SCIFI_COLORS.gridLine,
         cornerRadius: CORNER_RADIUS,
-        'focus.color': 0x1a2744
+        'focus.color': SCIFI_COLORS.gridHighlight
       },
       style: {
         fontSize: '14px',
-        fontFamily: 'Consolas, monospace',
-        color: '#ffffff',
-        'cursor.color': '#ffffff',
-        'cursor.backgroundColor': '#444466'
+        fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+        color: '#' + SCIFI_COLORS.uiTextPrimary.toString(16).padStart(6, '0'),
+        'cursor.color': '#' + SCIFI_COLORS.uiTextHighlight.toString(16).padStart(6, '0'),
+        'cursor.backgroundColor': '#' + SCIFI_COLORS.uiBorder.toString(16).padStart(6, '0')
       },
       textArea: false,
       enterClose: false,
@@ -160,8 +173,8 @@ export class ConsoleScene extends Phaser.Scene {
       '',
       {
         fontSize: '13px',
-        fontFamily: 'Consolas, monospace',
-        color: '#ffffff',
+        fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+        color: '#' + SCIFI_COLORS.uiTextPrimary.toString(16).padStart(6, '0'),
         wrap: { mode: 'char' as unknown as number, width: msgAreaWidth - 16 }
       }
     )

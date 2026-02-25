@@ -292,6 +292,13 @@ export class ConsoleScene extends Phaser.Scene {
     const input = (this.inputField.text ?? '').trim()
     if (!input) return
 
+    // Clear UI state BEFORE executing the command so that commands which close
+    // or switch the console (e.g. /scene) don't call setText/hideCompletions on
+    // an already-closed CanvasInput (which would re-activate its DOM element and
+    // block subsequent pointer/keyboard events in the new scene).
+    this.inputField.setText('')
+    this.hideCompletions()
+
     consoleStore.getState().appendMessage({ content: `> ${input}`, kind: 'input' })
 
     try {
@@ -303,9 +310,6 @@ export class ConsoleScene extends Phaser.Scene {
     }
 
     this.historyManager?.push(input)
-
-    this.inputField.setText('')
-    this.hideCompletions()
     this.refreshMessages()
 
     // Auto-scroll to bottom

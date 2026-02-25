@@ -41,7 +41,7 @@ description: "Task list template for feature implementation"
 - [ ] T007 [US1] 在 `src/renderer/ui/scenes/GameScene.ts` 的 `create` 方法中，调用 `generateTowerTexture` 和 `generateEnemyTexture` 预生成纹理
 - [ ] T008 [US1] 修改 `src/renderer/ui/scenes/GameScene.ts` 中的 `_buildTowerSprite` 方法，使用新生成的科幻塔纹理，并添加发光效果 (ADD blend mode)
 - [ ] T009 [US1] 修改 `src/renderer/ui/scenes/GameScene.ts` 中的 `_buildEnemySprite` 方法，使用新生成的科幻敌人纹理，并更新血条样式以符合极简风格
-- [ ] T010 [US1] 修改 `src/renderer/ui/scenes/GameScene.ts` 中 `towerAttackSystem` 的回调，使用 `drawBullet` 绘制科幻风格的子弹（青色发光轨迹）
+- [ ] T010 [US1] 修改 `src/renderer/ui/scenes/GameScene.ts` 中 `towerAttackSystem` 的回调，使用 `drawBullet` 绘制科幻风格的子弹（紫色发光轨迹）
 - [ ] T011 [US1] 在 `src/renderer/ui/scenes/GameScene.ts` 中实现受击闪烁效果（当敌人受到伤害时，短暂改变颜色或亮度）
 
 **Checkpoint**: 核心游戏元素（塔、敌人、子弹）已完全更新为科幻极简风格。
@@ -52,12 +52,12 @@ description: "Task list template for feature implementation"
 
 **Goal**: 将 HUD 和命令控制台的视觉表现更新为科幻极简风格。
 
-**Independent Test**: 在游戏中查看顶部/底部的 HUD 信息，按 \` 键打开控制台，验证所有 UI 元素是否采用了深蓝灰背景、青色边框和科幻等宽字体。
+**Independent Test**: 在游戏中查看顶部/底部的 HUD 信息，按 \` 键打开控制台，验证所有 UI 元素是否采用了极暗灰背景、灰色边框和科幻等宽字体，且文本以纯白高对比呈现。
 
 ### Implementation for User Story 2
 
 - [ ] T012 [P] [US2] 修改 `src/renderer/ui/HUD.ts`，更新背景面板、文本颜色和字体，使其符合 `SCIFI_COLORS` 和极简风格
-- [ ] T013 [P] [US2] 修改 `src/renderer/ui/scenes/ConsoleScene.ts`，更新控制台背景（深蓝灰半透明）、边框（青色）和输入提示符
+- [ ] T013 [P] [US2] 修改 `src/renderer/ui/scenes/ConsoleScene.ts`，更新控制台背景（极暗灰半透明）、边框（灰色）和输入提示符
 - [ ] T014 [US2] 修改 `src/renderer/ui/scenes/ConsoleScene.ts` 中的文本渲染逻辑，使用科幻等宽字体，并根据文本类型（命令、错误、系统信息）应用不同的科幻配色
 - [ ] T015 [US2] 在 `src/renderer/ui/scenes/ConsoleScene.ts` 中为控制台光标添加科幻风格的闪烁效果
 
@@ -73,7 +73,7 @@ description: "Task list template for feature implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] 修改 `src/renderer/ui/scenes/GameScene.ts` 的 `create` 方法，将主背景颜色更新为 `SCIFI_COLORS.background` (深蓝灰)
+- [ ] T016 [US3] 修改 `src/renderer/ui/scenes/GameScene.ts` 的 `create` 方法，将主背景颜色更新为 `SCIFI_COLORS.background` (近纯黑深灰)
 - [ ] T017 [US3] 在 `src/renderer/ui/scenes/GameScene.ts` 中添加绘制科幻网格线的方法，使用 `SCIFI_COLORS.gridLine`
 - [ ] T018 [US3] 修改 `src/renderer/ui/scenes/GameScene.ts` 中的路径（Road）绘制逻辑，将其更新为具有科技感的发光路径或极简几何通道，替代原有的泥土色矩形
 
@@ -87,7 +87,7 @@ description: "Task list template for feature implementation"
 
 - [x] T019 运行 `npm run test:e2e` (Playwright) 确保视觉更新没有破坏现有的集成测试逻辑
 - [x] T020 检查并优化高密度战斗场景（大量子弹和敌人）下的渲染性能，确保帧率稳定
-- [x] T021 验证色盲模式友好性（确保青色塔/子弹与橙色敌人之间有足够的对比度）
+- [x] T021 验证色盲模式友好性（确保紫色塔/子弹与灰白色敌人之间有足够的明度对比度）
 
 ---
 

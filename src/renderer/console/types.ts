@@ -4,7 +4,9 @@ export enum ParameterType {
   EntityCategory = 'EntityCategory',
   EntitySubtype = 'EntitySubtype',
   TileType = 'TileType',
-  Coordinate = 'Coordinate'
+  Coordinate = 'Coordinate',
+  BuildingId = 'BuildingId',
+  SceneKey = 'SceneKey'
 }
 
 // ─── Parameter Definition ────────────────────────────────────────────────────

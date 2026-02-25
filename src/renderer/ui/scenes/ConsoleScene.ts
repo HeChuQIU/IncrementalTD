@@ -10,6 +10,7 @@ import { registerHelpCommand } from '../../console/commands/helpCommand'
 import { registerSpawnCommand } from '../../console/commands/spawnCommand'
 import { registerTileCommand } from '../../console/commands/tileCommand'
 import { registerClearCommand } from '../../console/commands/clearCommand'
+import { registerSceneCommand } from '../../console/commands/sceneCommand'
 import { HistoryManager } from '../../console/HistoryManager'
 import { HighlightManager, parseCoordinatesFromInput } from '../../console/HighlightManager'
 import { completionEngine } from '../../console/CompletionEngine'
@@ -26,7 +27,6 @@ const PADDING = 10
 const INPUT_HEIGHT = 30
 const CORNER_RADIUS = SCIFI_GEOMETRY.ui.cornerRadius
 const MAX_VISIBLE_LINES = 12
-const LINE_HEIGHT = 20
 
 // ─── BBCode color map ────────────────────────────────────────────────────────
 const BBCODE_COLOR: Record<ConsoleMessage['kind'], string> = {
@@ -76,6 +76,7 @@ export class ConsoleScene extends Phaser.Scene {
       registerSpawnCommand()
       registerTileCommand()
       registerClearCommand()
+      registerSceneCommand(this.game)
       this.commandsRegistered = true
     }
 
@@ -152,8 +153,8 @@ export class ConsoleScene extends Phaser.Scene {
       textArea: false,
       enterClose: false,
       text: '',
-      wrap: { maxLines: 1, wrapMode: 'none' }
-    })
+      // wrap: { maxLines: 1 }
+    } as any)
     this.add.existing(this.inputField)
     this.consoleContainer.add(this.inputField)
 
@@ -175,7 +176,7 @@ export class ConsoleScene extends Phaser.Scene {
         fontSize: '13px',
         fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
         color: '#' + SCIFI_COLORS.uiTextPrimary.toString(16).padStart(6, '0'),
-        wrap: { mode: 'char' as unknown as number, width: msgAreaWidth - 16 }
+        wrap: { mode: 'char', width: msgAreaWidth - 16 }
       }
     )
     this.add.existing(this.messageDisplay)
@@ -183,6 +184,13 @@ export class ConsoleScene extends Phaser.Scene {
 
     // ─── Keyboard: capture-phase handler for special keys ──────────
     this.domKeyHandler = (e: KeyboardEvent) => {
+      // Handle backtick toggle regardless of open/closed state
+      if (e.code === 'Backquote' || e.key === '`') {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        consoleStore.getState().toggleConsole()
+        return
+      }
       if (!consoleStore.getState().isOpen) return
       this.handleSpecialKey(e)
     }
@@ -198,6 +206,12 @@ export class ConsoleScene extends Phaser.Scene {
         this.inputField.open()
         this.historyManager?.reset()
         this.refreshMessages()
+        // Consume pending pre-filled input (e.g. from shortcut buttons)
+        const pending = consoleStore.getState().pendingInput
+        if (pending !== null) {
+          this.inputField.setText(pending)
+          consoleStore.getState().clearPendingInput()
+        }
       } else {
         this.inputField.close()
         this.highlightManager?.clearHighlights()
@@ -278,6 +292,13 @@ export class ConsoleScene extends Phaser.Scene {
     const input = (this.inputField.text ?? '').trim()
     if (!input) return
 
+    // Clear UI state BEFORE executing the command so that commands which close
+    // or switch the console (e.g. /scene) don't call setText/hideCompletions on
+    // an already-closed CanvasInput (which would re-activate its DOM element and
+    // block subsequent pointer/keyboard events in the new scene).
+    this.inputField.setText('')
+    this.hideCompletions()
+
     consoleStore.getState().appendMessage({ content: `> ${input}`, kind: 'input' })
 
     try {
@@ -289,9 +310,6 @@ export class ConsoleScene extends Phaser.Scene {
     }
 
     this.historyManager?.push(input)
-
-    this.inputField.setText('')
-    this.hideCompletions()
     this.refreshMessages()
 
     // Auto-scroll to bottom

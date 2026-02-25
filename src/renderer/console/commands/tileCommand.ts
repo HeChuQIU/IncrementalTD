@@ -1,13 +1,10 @@
 import { commandRegistry } from '../CommandRegistry'
 import { completionEngine } from '../CompletionEngine'
 import { ParameterType } from '../types'
-import { GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
-
-// ─── Tile size constant ──────────────────────────────────────────────────────
-const TILE_SIZE = 32
+import { GRID_W, GRID_H } from '../../core/constants'
 
 /** Valid tile types  */
-const VALID_TILE_TYPES = ['wall', 'path', 'empty']
+const VALID_TILE_TYPES = ['wall', 'path', 'empty', 'copper_ore']
 
 // Register completion values
 completionEngine.registerTypeValues(ParameterType.TileType, VALID_TILE_TYPES)
@@ -17,6 +14,11 @@ const tileMap = new Map<string, string>()
 
 export function getTileAt(x: number, y: number): string {
   return tileMap.get(`${x},${y}`) ?? 'empty'
+}
+
+export function setTileAt(x: number, y: number, type: string): void {
+  tileMap.set(`${x},${y}`, type)
+  if (_pathRecalcHandler) _pathRecalcHandler()
 }
 
 export function getTileMap(): ReadonlyMap<string, string> {
@@ -63,10 +65,8 @@ export function registerTileCommand(): void {
         throw new Error(`无效的坐标: (${xStr}, ${yStr})`)
       }
 
-      const maxGridX = Math.floor(GAME_WIDTH / TILE_SIZE)
-      const maxGridY = Math.floor(GAME_HEIGHT / TILE_SIZE)
-      if (x < 0 || x >= maxGridX || y < 0 || y >= maxGridY) {
-        throw new Error(`坐标越界: (${x}, ${y})。有效范围: x=[0, ${maxGridX - 1}], y=[0, ${maxGridY - 1}]`)
+      if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) {
+        throw new Error(`坐标越界: (${x}, ${y})。有效范围: x=[0, ${GRID_W - 1}], y=[0, ${GRID_H - 1}]`)
       }
 
       tileMap.set(`${x},${y}`, tileType)

@@ -3,9 +3,12 @@ import { createWorld, IWorld } from 'bitecs'
 import { TILE_SIZE, GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
 import { initBuildings } from '../../core/buildings/buildingDefinitions'
 import { registerBuildingCommand, setWorldAccessor } from '../../console/commands/buildingCommand'
-import { registerTileCommand, setTileAt } from '../../console/commands/tileCommand'
+import { registerTileCommand, setTileAt, getTileMap, setPathRecalcHandler } from '../../console/commands/tileCommand'
 import { drillProductionSystem } from '../../core/systems/DrillProductionSystem'
 import { storageData } from '../../core/buildings/itemStorageStore'
+import { occupiedTilesData, buildingDefIdData } from '../../core/buildings/buildingStore'
+import { buildingRegistry } from '../../core/buildings/BuildingRegistry'
+import { getStorage } from '../../core/buildings/itemStorageStore'
 import { consoleStore } from '../../console/ConsoleStore'
 import { SCIFI_COLORS } from '../styles/colors'
 import { SCIFI_GEOMETRY } from '../styles/geometry'
@@ -20,6 +23,16 @@ const SHORTCUT_COMMANDS = [
 export class BuildingDemoScene extends Phaser.Scene {
   private world!: IWorld
   private debugText!: Phaser.GameObjects.Text
+  /** Graphics layer for dynamically-set tiles (via /tile set) */
+  private _dynamicTileGfx!: Phaser.GameObjects.Graphics
+  /** Graphics layer for placed building outlines */
+  private _buildingGfx!: Phaser.GameObjects.Graphics
+  /** Text labels for placed buildings (eid → Text) */
+  private _buildingLabels = new Map<number, Phaser.GameObjects.Text>()
+  /** Already-rendered tile keys to avoid redundant draws */
+  private _renderedTileKeys = new Set<string>()
+  /** Already-rendered building eids to avoid redundant draws */
+  private _renderedBuildingEids = new Set<number>()
 
 
   constructor() {
@@ -50,22 +63,23 @@ export class BuildingDemoScene extends Phaser.Scene {
     }
     gridGfx.strokePath()
 
+    // ─── Dynamic tile & building layers ──────────────────────────────
+    this._dynamicTileGfx = this.add.graphics().setDepth(1)
+    this._buildingGfx = this.add.graphics().setDepth(2)
+
     // ─── Copper ore tiles (3,3)–(4,4) ───────────────────────────────
-    const oreGfx = this.add.graphics()
     const oreGroup = [
       { x: 3, y: 3 }, { x: 4, y: 3 },
       { x: 3, y: 4 }, { x: 4, y: 4 },
     ]
     oreGroup.forEach(pos => {
-      oreGfx.fillStyle(0xb87333, 0.45)
-      oreGfx.fillRect(pos.x * TILE_SIZE, pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-      oreGfx.lineStyle(1, 0xd4935a, 0.8)
-      oreGfx.strokeRect(pos.x * TILE_SIZE, pos.y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
       setTileAt(pos.x, pos.y, 'copper_ore')
     })
-    this.add.text(3 * TILE_SIZE + 2, 3 * TILE_SIZE + 2, 'ORE', {
-      fontSize: '9px', fontFamily: SCIFI_GEOMETRY.ui.fontFamily, color: '#d4935a'
-    })
+    // Render all pre-set tiles visually
+    this._refreshTileVisuals()
+
+    // Register handler so future /tile set commands also trigger visual updates
+    setPathRecalcHandler(() => this._refreshTileVisuals())
 
     // ─── Debug info (top-left) ───────────────────────────────────────
     this.debugText = this.add.text(8, 8, '', {
@@ -169,6 +183,12 @@ export class BuildingDemoScene extends Phaser.Scene {
   update(time: number): void {
     drillProductionSystem(this.world, time)
 
+    // Render any newly-placed buildings
+    this._refreshBuildingVisuals()
+
+    // Update building storage labels
+    this._updateBuildingLabels(time)
+
     let copperCount = 0
     for (const storage of storageData.values()) {
       const item = storage.items.find(i => i.itemId === 'copper_ore')
@@ -178,7 +198,119 @@ export class BuildingDemoScene extends Phaser.Scene {
     this.debugText.setText(
       `[ Building Demo ]\n` +
       `Time       ${(time / 1000).toFixed(1)}s\n` +
-      `Copper Ore ${copperCount}`
+      `Copper Ore ${copperCount}\n` +
+      `Buildings  ${buildingDefIdData.size}`
     )
+  }
+
+  // ─── Dynamic tile rendering ──────────────────────────────────────
+  /** Draw tiles from tileMap that haven't been rendered yet */
+  private _refreshTileVisuals(): void {
+    const tileMapData = getTileMap()
+    for (const [key, type] of tileMapData.entries()) {
+      if (this._renderedTileKeys.has(key)) continue
+      this._renderedTileKeys.add(key)
+
+      const [txStr, tyStr] = key.split(',')
+      const tx = parseInt(txStr, 10)
+      const ty = parseInt(tyStr, 10)
+      const px = tx * TILE_SIZE
+      const py = ty * TILE_SIZE
+
+      if (type === 'copper_ore') {
+        this._dynamicTileGfx.fillStyle(0xb87333, 0.45)
+        this._dynamicTileGfx.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        this._dynamicTileGfx.lineStyle(1, 0xd4935a, 0.8)
+        this._dynamicTileGfx.strokeRect(px, py, TILE_SIZE, TILE_SIZE)
+        // Label
+        this.add.text(px + 2, py + 2, 'ORE', {
+          fontSize: '9px', fontFamily: SCIFI_GEOMETRY.ui.fontFamily, color: '#d4935a',
+        }).setDepth(1)
+      } else if (type === 'wall') {
+        this._dynamicTileGfx.fillStyle(SCIFI_COLORS.armorDark, 0.6)
+        this._dynamicTileGfx.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        this._dynamicTileGfx.lineStyle(1, SCIFI_COLORS.armorBase, 0.8)
+        this._dynamicTileGfx.strokeRect(px, py, TILE_SIZE, TILE_SIZE)
+      } else if (type === 'path') {
+        this._dynamicTileGfx.fillStyle(SCIFI_COLORS.playerPrimary, 0.2)
+        this._dynamicTileGfx.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        this._dynamicTileGfx.lineStyle(1, SCIFI_COLORS.playerPrimary, 0.5)
+        this._dynamicTileGfx.strokeRect(px, py, TILE_SIZE, TILE_SIZE)
+      }
+    }
+  }
+
+  // ─── Dynamic building rendering ──────────────────────────────────
+  /** Draw newly-placed buildings from ECS data */
+  private _refreshBuildingVisuals(): void {
+    for (const [eid, defId] of buildingDefIdData.entries()) {
+      if (this._renderedBuildingEids.has(eid)) continue
+      this._renderedBuildingEids.add(eid)
+
+      const def = buildingRegistry.get(defId)
+      if (!def) continue
+
+      const tiles = occupiedTilesData.get(eid)
+      if (!tiles || tiles.length === 0) continue
+
+      // Calculate bounding rect of occupied tiles
+      let minTx = Infinity, minTy = Infinity, maxTx = -Infinity, maxTy = -Infinity
+      for (const { tx, ty } of tiles) {
+        if (tx < minTx) minTx = tx
+        if (ty < minTy) minTy = ty
+        if (tx > maxTx) maxTx = tx
+        if (ty > maxTy) maxTy = ty
+      }
+
+      const px = minTx * TILE_SIZE
+      const py = minTy * TILE_SIZE
+      const pw = (maxTx - minTx + 1) * TILE_SIZE
+      const ph = (maxTy - minTy + 1) * TILE_SIZE
+
+      // Fill building area
+      const isDrill = defId === 'drill'
+      const fillColor = isDrill ? SCIFI_COLORS.playerSecondary : SCIFI_COLORS.playerPrimary
+      const borderColor = isDrill ? 0x27ae60 : 0x8e44ad
+
+      this._buildingGfx.fillStyle(fillColor, 0.3)
+      this._buildingGfx.fillRect(px, py, pw, ph)
+      this._buildingGfx.lineStyle(2, borderColor, 0.9)
+      this._buildingGfx.strokeRect(px + 1, py + 1, pw - 2, ph - 2)
+
+      // Building name label
+      const label = this.add.text(px + pw / 2, py + 3, def.displayName.toUpperCase(), {
+        fontSize: '10px',
+        fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }).setOrigin(0.5, 0).setDepth(3)
+
+      // Storage label (updated in _updateBuildingLabels)
+      if (def.storageCapacity) {
+        const storageLabel = this.add.text(px + pw / 2, py + ph - 4, '', {
+          fontSize: '9px',
+          fontFamily: SCIFI_GEOMETRY.ui.fontFamily,
+          color: '#' + SCIFI_COLORS.uiTextHighlight.toString(16).padStart(6, '0'),
+        }).setOrigin(0.5, 1).setDepth(3)
+        this._buildingLabels.set(eid, storageLabel)
+      } else {
+        // For non-storage buildings, keep the name label ref
+        this._buildingLabels.set(eid, label)
+      }
+    }
+  }
+
+  /** Update storage text for buildings that produce items */
+  private _updateBuildingLabels(_time: number): void {
+    for (const [eid, label] of this._buildingLabels.entries()) {
+      const defId = buildingDefIdData.get(eid)
+      if (!defId) continue
+      const def = buildingRegistry.get(defId)
+      if (!def || !def.storageCapacity) continue
+
+      const storage = getStorage(eid)
+      const total = storage ? storage.items.reduce((s, i) => s + i.count, 0) : 0
+      label.setText(`${total}/${def.storageCapacity}`)
+    }
   }
 }

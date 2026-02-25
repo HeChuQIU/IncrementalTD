@@ -185,7 +185,7 @@ export class ConsoleScene extends Phaser.Scene {
     // ─── Keyboard: capture-phase handler for special keys ──────────
     this.domKeyHandler = (e: KeyboardEvent) => {
       // Handle backtick toggle regardless of open/closed state
-      if (e.key === '`') {
+      if (e.code === 'Backquote' || e.key === '`') {
         e.preventDefault()
         e.stopImmediatePropagation()
         consoleStore.getState().toggleConsole()

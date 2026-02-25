@@ -21,21 +21,6 @@ export class BuildingDemoScene extends Phaser.Scene {
   private world!: IWorld
   private debugText!: Phaser.GameObjects.Text
 
-  // ─── Runtime diagnostics ──────────────────────────────────────────
-  private _diagText!: Phaser.GameObjects.Text
-  private _lastKeyEvent = 'none'
-  private _lastPointerEvent = 'none'
-  private _lastBtnClick = 'none'
-  private _diagKeyHandler?: (e: KeyboardEvent) => void
-
-  private ensureConsoleSceneReady(): void {
-    if (!this.scene.isActive('ConsoleScene')) {
-      this.scene.launch('ConsoleScene')
-    }
-    if (this.scene.isSleeping('ConsoleScene')) {
-      this.scene.wake('ConsoleScene')
-    }
-  }
 
   constructor() {
     super({ key: 'BuildingDemoScene' })
@@ -105,58 +90,11 @@ export class BuildingDemoScene extends Phaser.Scene {
     ).setOrigin(0.5, 1).setDepth(10)
 
     // ─── Console ─────────────────────────────────────────────────────
-    this.ensureConsoleSceneReady()
-
-    // Fallback: if ConsoleScene is not active for any reason, handle backquote
-    // locally so users can still open the console in this scene.
-    this.input.keyboard?.on('keydown-BACKQUOTE', () => {
-      if (!this.scene.isActive('ConsoleScene')) {
-        this.ensureConsoleSceneReady()
-        consoleStore.getState().toggleConsole()
-      }
-    })
-
-    // ─── Runtime diagnostics ──────────────────────────────────────────
-    this._setupDiagnostics()
-  }
-
-  private _setupDiagnostics(): void {
-    // Yellow diagnostic text at bottom-left (above the hint line)
-    this._diagText = this.add.text(8, GAME_HEIGHT - 100, '', {
-      fontSize: '10px',
-      fontFamily: 'monospace',
-      color: '#ffff00',
-      backgroundColor: '#000000cc',
-      padding: { x: 4, y: 2 },
-    }).setDepth(999)
-
-    // Window-level capture handler: fires BEFORE ConsoleScene's document handler
-    this._diagKeyHandler = (e: KeyboardEvent) => {
-      this._lastKeyEvent = `${e.code}(${e.key})@${(Date.now() % 100000)}`
-      if (e.code === 'Backquote' || e.key === '`') {
-        console.log('[DIAG] ★ Backquote at window-capture, isOpen BEFORE:', consoleStore.getState().isOpen)
-      }
+    // 确保 ConsoleScene 存活且在最顶层渲染（否则会被当前场景的背景遮住）
+    if (!this.scene.isActive('ConsoleScene')) {
+      this.scene.launch('ConsoleScene')
     }
-    window.addEventListener('keydown', this._diagKeyHandler, true)
-
-    // Scene-level pointerdown: detect if Phaser receives mousedown at all
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      this._lastPointerEvent = `DOWN(${Math.round(pointer.x)},${Math.round(pointer.y)})@${(Date.now() % 100000)}`
-      console.log('[DIAG] Phaser pointerdown in BuildingDemoScene:', pointer.x, pointer.y)
-    })
-
-    // Inspect ConsoleScene instance
-    const cs = this.scene.get('ConsoleScene') as any
-    console.log('[DIAG] ConsoleScene instance:', !!cs)
-    console.log('[DIAG] ConsoleScene.domKeyHandler:', !!cs?.domKeyHandler)
-    console.log('[DIAG] ConsoleScene.inputField:', !!cs?.inputField)
-    console.log('[DIAG] ConsoleScene.consoleContainer:', !!cs?.consoleContainer)
-    console.log('[DIAG] ConsoleScene.consoleContainer.visible:', cs?.consoleContainer?.visible)
-
-    // Store subscription for diagnostic logging
-    consoleStore.subscribe((state) => {
-      console.log('[DIAG] store changed: isOpen=' + state.isOpen + ' pending=' + state.pendingInput)
-    })
+    this.scene.bringToTop('ConsoleScene')
   }
 
   // ─── Shortcut panel ──────────────────────────────────────────────
@@ -216,9 +154,6 @@ export class BuildingDemoScene extends Phaser.Scene {
       const onOver = (): void => { draw(true); btnText.setColor('#' + SCIFI_COLORS.playerHighlight.toString(16).padStart(6, '0')) }
       const onOut  = (): void => { draw(false); btnText.setColor('#' + SCIFI_COLORS.uiTextSecondary.toString(16).padStart(6, '0')) }
       const onDown = (): void => {
-        this._lastBtnClick = label + '@' + (Date.now() % 100000)
-        console.log('[DIAG] Button pointerdown:', label, command)
-        this.ensureConsoleSceneReady()
         consoleStore.getState().openConsoleWithInput(command)
       }
 
@@ -244,17 +179,6 @@ export class BuildingDemoScene extends Phaser.Scene {
       `[ Building Demo ]\n` +
       `Time       ${(time / 1000).toFixed(1)}s\n` +
       `Copper Ore ${copperCount}`
-    )
-
-    // ─── Live diagnostic display ──────────────────────────────────
-    const state = consoleStore.getState()
-    const csActive = this.scene.isActive('ConsoleScene')
-    this._diagText?.setText(
-      `[DIAG] isOpen:${state.isOpen} pending:${state.pendingInput}\n` +
-      `ConsoleScene active:${csActive}\n` +
-      `lastKey: ${this._lastKeyEvent}\n` +
-      `lastPtr: ${this._lastPointerEvent}\n` +
-      `lastBtn: ${this._lastBtnClick}`
     )
   }
 }

@@ -36,6 +36,9 @@ export function registerSceneCommand(game: Phaser.Game): void {
       // 启动目标场景
       sceneManager.start(sceneKey)
 
+      // ConsoleScene 必须在最顶层渲染，否则会被目标场景的背景覆盖
+      sceneManager.bringToTop('ConsoleScene')
+
       return `正在切换至场景: ${sceneKey}`
     }
   )

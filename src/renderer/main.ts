@@ -3,6 +3,7 @@ import UIPlugin from 'phaser3-rex-plugins/templates/ui/ui-plugin.js'
 import { BootScene } from './ui/scenes/BootScene'
 import { GameScene } from './ui/scenes/GameScene'
 import { ConsoleScene } from './ui/scenes/ConsoleScene'
+import { BuildingDemoScene } from './ui/scenes/BuildingDemoScene'
 import { GAME_WIDTH, GAME_HEIGHT } from './core/constants'
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -11,7 +12,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: GAME_HEIGHT,
   backgroundColor: '#1a1a1a',
   parent: 'app',
-  scene: [BootScene, GameScene, ConsoleScene],
+  scene: [BootScene, GameScene, ConsoleScene, BuildingDemoScene],
   plugins: {
     scene: [
       {

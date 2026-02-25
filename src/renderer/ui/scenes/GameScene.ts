@@ -10,7 +10,8 @@ import { enemyMoveSystem } from '../../core/systems/EnemyMoveSystem'
 import { Health, Position, Velocity } from '../../core/components'
 import { TOWER_CONFIG, ENEMY_PATH, GAME_WIDTH, GAME_HEIGHT } from '../../core/constants'
 import { gameStore } from '../../store/gameStore'
-import { consoleStore } from '../../console/ConsoleStore'
+import { registerBuildingCommand, setWorldAccessor } from '../../console/commands/buildingCommand'
+import { initBuildings } from '../../core/buildings/buildingDefinitions' 
 import { HUD } from '../HUD'
 import { generateTowerTexture, generateEnemyTexture, drawBullet } from '../styles/geometry'
 import { SCIFI_COLORS } from '../styles/colors'
@@ -89,16 +90,14 @@ export class GameScene extends Phaser.Scene {
     // ─── HUD ────────────────────────────────────────────────────────────────
     this.hud = new HUD(this)
 
+    // ─── Buildings (US3) ──────────────────────────────────────────────────
+    initBuildings()
+    registerBuildingCommand()
+    setWorldAccessor(() => this.world)
+
     // ─── Console ────────────────────────────────────────────────────────────
     this.scene.launch('ConsoleScene')
-
-    // Toggle console with backtick key
-    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      if (event.key === '`') {
-        event.preventDefault()
-        consoleStore.getState().toggleConsole()
-      }
-    })
+    // Backtick toggle is handled by ConsoleScene itself (DOM capture handler)
 
     gameStore.getState().startGame()
   }

@@ -42,7 +42,7 @@ export class GameScene extends Phaser.Scene {
     
     // Grid lines
     const gridGfx = this.add.graphics()
-    gridGfx.lineStyle(1, SCIFI_COLORS.gridLine, 0.5)
+    gridGfx.lineStyle(1, SCIFI_COLORS.gridLine, 0.8) // 提高网格线不透明度
     for (let x = 0; x < GAME_WIDTH; x += 40) {
       gridGfx.moveTo(x, 0)
       gridGfx.lineTo(x, GAME_HEIGHT)
@@ -55,7 +55,7 @@ export class GameScene extends Phaser.Scene {
 
     // Road (Sci-fi path)
     const roadGfx = this.add.graphics()
-    roadGfx.lineStyle(4, SCIFI_COLORS.gridHighlight, 0.8)
+    roadGfx.lineStyle(4, SCIFI_COLORS.gridHighlight, 1) // 提高路径不透明度
     roadGfx.beginPath()
     roadGfx.moveTo(ENEMY_PATH[0].x, ENEMY_PATH[0].y)
     for (let i = 1; i < ENEMY_PATH.length; i++) {
@@ -65,7 +65,7 @@ export class GameScene extends Phaser.Scene {
     
     // Road glow
     const roadGlow = this.add.graphics()
-    roadGlow.lineStyle(12, SCIFI_COLORS.gridHighlight, 0.2)
+    roadGlow.lineStyle(12, SCIFI_COLORS.gridHighlight, 0.4) // 提高发光不透明度
     roadGlow.setBlendMode(Phaser.BlendModes.ADD)
     roadGlow.beginPath()
     roadGlow.moveTo(ENEMY_PATH[0].x, ENEMY_PATH[0].y)

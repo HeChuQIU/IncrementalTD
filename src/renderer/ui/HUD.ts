@@ -1,6 +1,4 @@
 import Phaser from 'phaser'
-import { SCIFI_COLORS, SCIFI_GEOMETRY } from './styles/geometry' // Wait, SCIFI_COLORS is in colors.ts
-// Let's fix the import
 import { SCIFI_COLORS } from './styles/colors'
 import { SCIFI_GEOMETRY } from './styles/geometry'
 

@@ -6,7 +6,7 @@ export const SCIFI_GEOMETRY = {
   tower: {
     baseRadius: 16,
     coreRadius: 6,
-    armorThickness: 4,
+    armorThickness: 2,
     sides: 6 // 六边形底座，体现硬朗几何
   },
 
@@ -14,7 +14,7 @@ export const SCIFI_GEOMETRY = {
   enemy: {
     baseRadius: 12,
     coreRadius: 4,
-    armorThickness: 3,
+    armorThickness: 2,
     sides: 4 // 四边形/菱形，与塔区分
   },
 
@@ -49,9 +49,9 @@ export function generateTowerTexture({ scene, key }: GenerateTowerTextureParams)
 
   const graphics = scene.make.graphics({ x: 0, y: 0 })
 
-  // 绘制外层装甲 (六边形)
-  graphics.lineStyle(armorThickness, SCIFI_COLORS.armorLight)
-  graphics.fillStyle(SCIFI_COLORS.armorDark)
+  // 绘制外层装甲 (六边形) - 高对比度空心/暗色填充
+  graphics.lineStyle(armorThickness, SCIFI_COLORS.playerPrimary)
+  graphics.fillStyle(SCIFI_COLORS.background)
   
   const points = []
   for (let i = 0; i < sides; i++) {
@@ -64,25 +64,25 @@ export function generateTowerTexture({ scene, key }: GenerateTowerTextureParams)
   graphics.fillPoints(points, true, true)
   graphics.strokePoints(points, true, true)
 
-  // 绘制内层装甲
-  graphics.fillStyle(SCIFI_COLORS.armorBase)
-  const innerPoints = []
+  // 绘制内层连接线
+  graphics.lineStyle(1, SCIFI_COLORS.armorBase)
   for (let i = 0; i < sides; i++) {
     const angle = (i * Math.PI * 2) / sides
-    innerPoints.push(new Phaser.Math.Vector2(
-      center + Math.cos(angle) * (baseRadius - armorThickness),
-      center + Math.sin(angle) * (baseRadius - armorThickness)
-    ))
+    graphics.moveTo(center, center)
+    graphics.lineTo(
+      center + Math.cos(angle) * baseRadius,
+      center + Math.sin(angle) * baseRadius
+    )
   }
-  graphics.fillPoints(innerPoints, true, true)
+  graphics.strokePath()
 
   // 绘制能量核心
   graphics.fillStyle(SCIFI_COLORS.playerPrimary)
   graphics.fillCircle(center, center, coreRadius)
 
   // 绘制核心发光
-  graphics.fillStyle(SCIFI_COLORS.playerGlow, 0.5)
-  graphics.fillCircle(center, center, coreRadius + 2)
+  graphics.lineStyle(2, SCIFI_COLORS.playerGlow, 0.8)
+  graphics.strokeCircle(center, center, coreRadius + 2)
 
   graphics.generateTexture(key, size, size)
   graphics.destroy()
@@ -104,9 +104,9 @@ export function generateEnemyTexture({ scene, key }: GenerateEnemyTextureParams)
 
   const graphics = scene.make.graphics({ x: 0, y: 0 })
 
-  // 绘制外层装甲 (菱形)
-  graphics.lineStyle(armorThickness, SCIFI_COLORS.armorLight)
-  graphics.fillStyle(SCIFI_COLORS.armorDark)
+  // 绘制外层装甲 (菱形) - 高对比度空心/暗色填充
+  graphics.lineStyle(armorThickness, SCIFI_COLORS.enemyPrimary)
+  graphics.fillStyle(SCIFI_COLORS.background)
   
   const points = []
   for (let i = 0; i < sides; i++) {
@@ -119,25 +119,25 @@ export function generateEnemyTexture({ scene, key }: GenerateEnemyTextureParams)
   graphics.fillPoints(points, true, true)
   graphics.strokePoints(points, true, true)
 
-  // 绘制内层装甲
-  graphics.fillStyle(SCIFI_COLORS.armorBase)
-  const innerPoints = []
+  // 绘制内层连接线
+  graphics.lineStyle(1, SCIFI_COLORS.armorBase)
   for (let i = 0; i < sides; i++) {
     const angle = (i * Math.PI * 2) / sides + Math.PI / 4
-    innerPoints.push(new Phaser.Math.Vector2(
-      center + Math.cos(angle) * (baseRadius - armorThickness),
-      center + Math.sin(angle) * (baseRadius - armorThickness)
-    ))
+    graphics.moveTo(center, center)
+    graphics.lineTo(
+      center + Math.cos(angle) * baseRadius,
+      center + Math.sin(angle) * baseRadius
+    )
   }
-  graphics.fillPoints(innerPoints, true, true)
+  graphics.strokePath()
 
   // 绘制能量核心
   graphics.fillStyle(SCIFI_COLORS.enemyPrimary)
   graphics.fillCircle(center, center, coreRadius)
 
   // 绘制核心发光
-  graphics.fillStyle(SCIFI_COLORS.enemyGlow, 0.5)
-  graphics.fillCircle(center, center, coreRadius + 2)
+  graphics.lineStyle(2, SCIFI_COLORS.enemyGlow, 0.8)
+  graphics.strokeCircle(center, center, coreRadius + 2)
 
   graphics.generateTexture(key, size, size)
   graphics.destroy()
